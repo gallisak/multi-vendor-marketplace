@@ -1,8 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { DURATION_PATTERN } from '../../common/duration.js';
 
 const PRODUCTION_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MEILI_MASTER_KEY'] as const;
 const INSECURE_SECRET = /change-me/i;
+
+const duration = (fallback: string) =>
+  z.string().regex(DURATION_PATTERN, 'expected duration like 900, 15m, 7d').default(fallback);
 
 export const envSchema = z
   .object({
@@ -13,6 +17,8 @@ export const envSchema = z
       .default('info'),
     LOG_PRETTY: z.stringbool().default(false),
     CORS_ORIGIN: z.string().default('http://localhost:5173'),
+    RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
+    LOGIN_IP_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
 
     DATABASE_URL: z.url(),
     REDIS_URL: z.url(),
@@ -20,9 +26,10 @@ export const envSchema = z
     MEILI_MASTER_KEY: z.string().min(1),
 
     JWT_ACCESS_SECRET: z.string().min(16),
-    JWT_ACCESS_TTL: z.string().default('15m'),
+    JWT_ACCESS_TTL: duration('15m'),
     JWT_REFRESH_SECRET: z.string().min(16),
-    JWT_REFRESH_TTL: z.string().default('7d'),
+    JWT_REFRESH_TTL: duration('7d'),
+    REFRESH_ROTATION_GRACE_SECONDS: z.coerce.number().int().min(0).max(60).default(10),
 
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),

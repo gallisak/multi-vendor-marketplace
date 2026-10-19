@@ -25,11 +25,20 @@ import type { Env } from '../config/env.schema.js';
             genReqId: (req, res) => resolveCorrelationId(req, res),
             customAttributeKeys: { reqId: 'correlationId' },
             mixin: () => {
-              const correlationId = ClsServiceManager.getClsService().getId();
-              return correlationId ? { correlationId } : {};
+              const cls = ClsServiceManager.getClsService();
+              if (!cls.isActive()) {
+                return {};
+              }
+              const userId = cls.get<string | undefined>('userId');
+              return { correlationId: cls.getId(), ...(userId && { userId }) };
             },
             redact: ['req.headers.authorization', 'req.headers.cookie'],
-            autoLogging: { ignore: (req) => req.url === '/metrics' || req.url === '/health' },
+            serializers: {
+              res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
+            },
+            autoLogging: {
+              ignore: (req) => ['/metrics', '/health', '/health/ready'].includes(req.url ?? ''),
+            },
             transport: config.get('LOG_PRETTY', { infer: true })
               ? {
                   target: 'pino-pretty',

@@ -8,6 +8,9 @@ import { LoggingModule } from './infra/logging/logging.module.js';
 import { MetricsModule } from './infra/metrics/metrics.module.js';
 import { PrismaModule } from './infra/prisma/prisma.module.js';
 import { RedisModule } from './infra/redis/redis.module.js';
+import { ThrottlingModule } from './infra/throttling/throttling.module.js';
+import { AuthModule } from './modules/auth/auth.module.js';
+import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
   imports: [
@@ -22,6 +25,9 @@ import { RedisModule } from './infra/redis/redis.module.js';
     RedisModule,
     MetricsModule,
     HealthModule,
+    ThrottlingModule,
+    UsersModule,
+    AuthModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

@@ -21,7 +21,11 @@ class RedisShutdown implements OnApplicationShutdown {
       provide: REDIS,
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) =>
-        new Redis(config.get('REDIS_URL', { infer: true }), { maxRetriesPerRequest: null }),
+        new Redis(config.get('REDIS_URL', { infer: true }), {
+          maxRetriesPerRequest: 1,
+          connectTimeout: 2000,
+          enableOfflineQueue: false,
+        }),
     },
     RedisShutdown,
   ],

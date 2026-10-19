@@ -68,6 +68,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       LOG_PRETTY: 'false'
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-300}
+      LOGIN_IP_RATE_LIMIT_PER_MINUTE: ${LOGIN_IP_RATE_LIMIT_PER_MINUTE:-20}
       DATABASE_URL: postgresql://${POSTGRES_USER:-mvm}:${POSTGRES_PASSWORD:-mvm}@postgres:5432/${POSTGRES_DB:-mvm}
       REDIS_URL: redis://redis:6379
       MEILI_HOST: http://meilisearch:7700
@@ -76,6 +78,7 @@ services:
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      REFRESH_ROTATION_GRACE_SECONDS: ${REFRESH_ROTATION_GRACE_SECONDS:-10}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3001/api/auth/google/callback}
