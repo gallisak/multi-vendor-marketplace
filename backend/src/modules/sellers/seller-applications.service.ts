@@ -1,7 +1,9 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { sellerApproved } from '../../common/events/domain-events.js';
 import { toPage, toSkipTake } from '../../common/pagination.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { Role, SellerApplicationStatus } from '../../generated/prisma/enums.js';
+import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { type Transaction, UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { AccessTokenRevocationService } from '../auth/access-token-revocation.service.js';
 import { UsersRepository } from '../users/users.repository.js';
@@ -25,6 +27,7 @@ export class SellerApplicationsService {
     private readonly sellers: SellersRepository,
     private readonly users: UsersRepository,
     private readonly uow: UnitOfWork,
+    private readonly outbox: OutboxService,
     private readonly revocation: AccessTokenRevocationService,
   ) {}
 
@@ -72,7 +75,7 @@ export class SellerApplicationsService {
           SellerApplicationStatus.APPROVED,
           note,
         );
-        await this.sellers.create(
+        const seller = await this.sellers.create(
           {
             userId: reviewed.userId,
             storeName: reviewed.storeName,
@@ -83,6 +86,14 @@ export class SellerApplicationsService {
         if (!(await this.users.promote(reviewed.userId, Role.CUSTOMER, Role.SELLER, tx))) {
           throw new ConflictException('Applicant is no longer a customer');
         }
+        await this.outbox.add(
+          tx,
+          sellerApproved({
+            sellerId: seller.id,
+            userId: reviewed.userId,
+            storeName: reviewed.storeName,
+          }),
+        );
         return reviewed;
       });
 

@@ -1,5 +1,30 @@
 name: mvm
 
+x-backend-env: &backend-env
+  NODE_ENV: ${NODE_ENV:-development}
+  LOG_PRETTY: 'false'
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+  RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-300}
+  LOGIN_IP_RATE_LIMIT_PER_MINUTE: ${LOGIN_IP_RATE_LIMIT_PER_MINUTE:-20}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-mvm}:${POSTGRES_PASSWORD:-mvm}@postgres:5432/${POSTGRES_DB:-mvm}
+  REDIS_URL: redis://redis:6379
+  MEILI_HOST: http://meilisearch:7700
+  MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key-change-me}
+  MEILI_INDEX_PREFIX: ${MEILI_INDEX_PREFIX:-}
+  SEARCH_TIMEOUT_MS: ${SEARCH_TIMEOUT_MS:-1500}
+  OUTBOX_RELAY_INTERVAL_MS: ${OUTBOX_RELAY_INTERVAL_MS:-500}
+  OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-100}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+  JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+  JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+  REFRESH_ROTATION_GRACE_SECONDS: ${REFRESH_ROTATION_GRACE_SECONDS:-10}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3001/api/auth/google/callback}
+  PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT:-10}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -63,26 +88,8 @@ services:
       context: ./backend
       target: runtime
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      <<: *backend-env
       API_PORT: 3000
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      LOG_PRETTY: 'false'
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
-      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-300}
-      LOGIN_IP_RATE_LIMIT_PER_MINUTE: ${LOGIN_IP_RATE_LIMIT_PER_MINUTE:-20}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-mvm}:${POSTGRES_PASSWORD:-mvm}@postgres:5432/${POSTGRES_DB:-mvm}
-      REDIS_URL: redis://redis:6379
-      MEILI_HOST: http://meilisearch:7700
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-master-key-change-me}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
-      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
-      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
-      REFRESH_ROTATION_GRACE_SECONDS: ${REFRESH_ROTATION_GRACE_SECONDS:-10}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3001/api/auth/google/callback}
-      PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT:-10}
     ports:
       - '${API_PORT:-3001}:3000'
     restart: unless-stopped
@@ -91,7 +98,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    depends_on:
+    depends_on: &backend-deps
       migrate:
         condition: service_completed_successfully
       postgres:
@@ -100,6 +107,24 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    command: ['node', 'dist/worker.js']
+    environment:
+      <<: *backend-env
+      WORKER_PORT: 3002
+    ports:
+      - '${WORKER_PORT:-3002}:3002'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3002/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on: *backend-deps
 
 volumes:
   postgres-data:

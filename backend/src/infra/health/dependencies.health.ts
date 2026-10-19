@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HealthIndicatorService } from '@nestjs/terminus';
 import type { Redis } from 'ioredis';
+import { withTimeout } from '../../common/with-timeout.js';
 import type { Env } from '../config/env.schema.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { REDIS } from '../redis/redis.module.js';
@@ -9,14 +10,6 @@ import { REDIS } from '../redis/redis.module.js';
 const CHECK_TIMEOUT_MS = 1000;
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
-export function withTimeout<T>(promise: Promise<T>, ms = CHECK_TIMEOUT_MS): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
 
 @Injectable()
 export class DependenciesHealthIndicator {
@@ -30,7 +23,7 @@ export class DependenciesHealthIndicator {
   async database() {
     const check = this.indicator.check('database');
     try {
-      await withTimeout(this.prisma.$queryRaw`SELECT 1`);
+      await withTimeout(this.prisma.$queryRaw`SELECT 1`, CHECK_TIMEOUT_MS);
       return check.up();
     } catch (error) {
       return check.down({ message: errorMessage(error) });
@@ -43,7 +36,7 @@ export class DependenciesHealthIndicator {
       return check.down({ message: `Connection status: ${this.redisClient.status}` });
     }
     try {
-      await withTimeout(this.redisClient.ping());
+      await withTimeout(this.redisClient.ping(), CHECK_TIMEOUT_MS);
       return check.up();
     } catch (error) {
       return check.down({ message: errorMessage(error) });

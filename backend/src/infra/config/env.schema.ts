@@ -2,11 +2,11 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { DURATION_PATTERN } from '../../common/duration.js';
 
-const PRODUCTION_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MEILI_MASTER_KEY'] as const;
-const INSECURE_SECRET = /change-me/i;
-
 const duration = (fallback: string) =>
   z.string().regex(DURATION_PATTERN, 'expected duration like 900, 15m, 7d').default(fallback);
+
+const PRODUCTION_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MEILI_MASTER_KEY'] as const;
+const INSECURE_SECRET = /change-me/i;
 
 export const envSchema = z
   .object({
@@ -24,6 +24,12 @@ export const envSchema = z
     REDIS_URL: z.url(),
     MEILI_HOST: z.url(),
     MEILI_MASTER_KEY: z.string().min(1),
+    MEILI_INDEX_PREFIX: z.string().default(''),
+    SEARCH_TIMEOUT_MS: z.coerce.number().int().positive().default(1500),
+
+    WORKER_PORT: z.coerce.number().int().positive().default(3002),
+    OUTBOX_RELAY_INTERVAL_MS: z.coerce.number().int().positive().default(500),
+    OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
 
     JWT_ACCESS_SECRET: z.string().min(16),
     JWT_ACCESS_TTL: duration('15m'),

@@ -1,6 +1,9 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { productChanged } from '../../common/events/domain-events.js';
 import { toPage, toSkipTake } from '../../common/pagination.js';
 import { ProductStatus } from '../../generated/prisma/enums.js';
+import { OutboxService } from '../../infra/outbox/outbox.service.js';
+import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { toSellerProductDto } from './product.mapper.js';
 import type { SellerProductsQueryDto } from './products.dto.js';
 import { ProductsRepository } from './products.repository.js';
@@ -9,7 +12,11 @@ import { ProductsRepository } from './products.repository.js';
 export class ProductModerationService {
   private readonly logger = new Logger(ProductModerationService.name);
 
-  constructor(private readonly products: ProductsRepository) {}
+  constructor(
+    private readonly products: ProductsRepository,
+    private readonly uow: UnitOfWork,
+    private readonly outbox: OutboxService,
+  ) {}
 
   async list(query: SellerProductsQueryDto) {
     const [items, total] = await this.products.findPageByStatus(
@@ -48,9 +55,15 @@ export class ProductModerationService {
   }
 
   private async transition(productId: string, status: ProductStatus, note: string | null) {
-    if (!(await this.products.moderate(productId, status, note))) {
-      throw new ConflictException('Product is not awaiting moderation');
-    }
+    await this.uow.run(async (tx) => {
+      if (!(await this.products.moderate(productId, status, note, tx))) {
+        throw new ConflictException('Product is not awaiting moderation');
+      }
+      await this.outbox.add(
+        tx,
+        productChanged(productId, status === ProductStatus.ACTIVE ? 'approved' : 'rejected'),
+      );
+    });
   }
 
   private async get(productId: string) {

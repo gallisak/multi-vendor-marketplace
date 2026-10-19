@@ -5,8 +5,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { categoryChanged } from '../../common/events/domain-events.js';
 import { slugify } from '../../common/slug.js';
 import { Prisma } from '../../generated/prisma/client.js';
+import { OutboxService } from '../../infra/outbox/outbox.service.js';
+import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { CategoriesRepository } from './categories.repository.js';
 import type { CategoryDto, CreateCategoryDto, UpdateCategoryDto } from './categories.dto.js';
 import { buildTree, CategoryNode, descendantIds, wouldCreateCycle } from './category-tree.js';
@@ -18,7 +21,11 @@ export class CategoriesService {
   private readonly logger = new Logger(CategoriesService.name);
   private cache: { loadedAt: number; categories: Promise<CategoryNode[]> } | null = null;
 
-  constructor(private readonly categories: CategoriesRepository) {}
+  constructor(
+    private readonly categories: CategoriesRepository,
+    private readonly uow: UnitOfWork,
+    private readonly outbox: OutboxService,
+  ) {}
 
   async tree() {
     return buildTree(await this.all());
@@ -62,7 +69,15 @@ export class CategoriesService {
     }
 
     const updated = await this.withSlugConflict(() =>
-      this.categories.update(id, { name: dto.name, slug: dto.slug, parentId: dto.parentId }),
+      this.uow.run(async (tx) => {
+        const category = await this.categories.update(
+          id,
+          { name: dto.name, slug: dto.slug, parentId: dto.parentId },
+          tx,
+        );
+        await this.outbox.add(tx, categoryChanged(id));
+        return category;
+      }),
     );
     this.invalidate();
     return updated;

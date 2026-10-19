@@ -1,3 +1,5 @@
+import type { OutboxService } from '../../infra/outbox/outbox.service.js';
+import type { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import type { CategoriesRepository } from './categories.repository.js';
 import { CategoriesService } from './categories.service.js';
 
@@ -6,7 +8,7 @@ const categories = [{ id: 'books', name: 'Books', slug: 'books', parentId: null 
 const setup = () => {
   const findMany = vi.fn().mockResolvedValue(categories);
   const repository = { findAll: findMany } as unknown as CategoriesRepository;
-  const service = new CategoriesService(repository);
+  const service = new CategoriesService(repository, {} as UnitOfWork, {} as OutboxService);
   return { service, findMany };
 };
 

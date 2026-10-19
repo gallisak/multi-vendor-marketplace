@@ -5,8 +5,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { productChanged } from '../../common/events/domain-events.js';
 import { toPage, toSkipTake } from '../../common/pagination.js';
 import { AuctionStatus, ProductStatus, ProductType } from '../../generated/prisma/enums.js';
+import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { CategoriesService } from '../categories/categories.service.js';
 import { SellersService } from '../sellers/sellers.service.js';
@@ -34,6 +36,7 @@ export class SellerProductsService {
     private readonly uow: UnitOfWork,
     private readonly sellers: SellersService,
     private readonly categories: CategoriesService,
+    private readonly outbox: OutboxService,
   ) {}
 
   async create(userId: string, dto: CreateProductDto): Promise<SellerProductDto> {
@@ -42,23 +45,30 @@ export class SellerProductsService {
     await this.categories.assertExists(dto.categoryId);
 
     const isAuction = dto.type === ProductType.AUCTION;
-    const product = await this.products.create({
-      sellerId,
-      categoryId: dto.categoryId,
-      title: dto.title,
-      description: dto.description,
-      type: dto.type,
-      status: ProductStatus.PENDING_MODERATION,
-      priceMinor: isAuction ? dto.auction!.startPriceMinor : dto.priceMinor!,
-      stock: isAuction ? 1 : dto.stock!,
-      imageUrls: dto.imageUrls ?? [],
-      auction: isAuction
-        ? {
-            startPriceMinor: dto.auction!.startPriceMinor,
-            bidStepMinor: dto.auction!.bidStepMinor,
-            endsAt: dto.auction!.endsAt,
-          }
-        : undefined,
+    const product = await this.uow.run(async (tx) => {
+      const created = await this.products.create(
+        {
+          sellerId,
+          categoryId: dto.categoryId,
+          title: dto.title,
+          description: dto.description,
+          type: dto.type,
+          status: ProductStatus.PENDING_MODERATION,
+          priceMinor: isAuction ? dto.auction!.startPriceMinor : dto.priceMinor!,
+          stock: isAuction ? 1 : dto.stock!,
+          imageUrls: dto.imageUrls ?? [],
+          auction: isAuction
+            ? {
+                startPriceMinor: dto.auction!.startPriceMinor,
+                bidStepMinor: dto.auction!.bidStepMinor,
+                endsAt: dto.auction!.endsAt,
+              }
+            : undefined,
+        },
+        tx,
+      );
+      await this.outbox.add(tx, productChanged(created.id, 'created'));
+      return created;
     });
 
     this.logger.log({ productId: product.id, sellerId, type: dto.type }, 'Product created');
@@ -92,18 +102,25 @@ export class SellerProductsService {
     }
 
     const status = statusAfterEdit(product.status, hasContentChanges(product, dto));
-    const updated = await this.products.updateVersioned(product, {
-      title: dto.title,
-      description: dto.description,
-      categoryId: dto.categoryId,
-      imageUrls: dto.imageUrls,
-      priceMinor: dto.priceMinor,
-      status,
-      moderationNote: status === ProductStatus.PENDING_MODERATION ? null : undefined,
+    await this.uow.run(async (tx) => {
+      const updated = await this.products.updateVersioned(
+        product,
+        {
+          title: dto.title,
+          description: dto.description,
+          categoryId: dto.categoryId,
+          imageUrls: dto.imageUrls,
+          priceMinor: dto.priceMinor,
+          status,
+          moderationNote: status === ProductStatus.PENDING_MODERATION ? null : undefined,
+        },
+        tx,
+      );
+      if (!updated) {
+        throw new ConflictException('Product was modified concurrently, reload and retry');
+      }
+      await this.outbox.add(tx, productChanged(product.id, 'updated'));
     });
-    if (!updated) {
-      throw new ConflictException('Product was modified concurrently, reload and retry');
-    }
 
     this.logger.log({ productId, statusFrom: product.status, statusTo: status }, 'Product updated');
     return this.get(userId, productId);
@@ -118,9 +135,12 @@ export class SellerProductsService {
       throw new ConflictException('Archived product cannot be restocked');
     }
 
-    if (!(await this.products.adjustStock(product, delta))) {
-      throw new ConflictException('Not enough stock to write off');
-    }
+    await this.uow.run(async (tx) => {
+      if (!(await this.products.adjustStock(product, delta, tx))) {
+        throw new ConflictException('Not enough stock to write off');
+      }
+      await this.outbox.add(tx, productChanged(product.id, 'stock_changed'));
+    });
 
     this.logger.log({ productId, delta }, 'Product stock adjusted');
     return this.get(userId, productId);
@@ -145,6 +165,7 @@ export class SellerProductsService {
           throw new ConflictException('Auction with bids cannot be archived');
         }
       }
+      await this.outbox.add(tx, productChanged(product.id, 'archived'));
     });
     this.logger.log({ productId }, 'Product archived');
   }

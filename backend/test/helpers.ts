@@ -7,6 +7,7 @@ import { Roles } from '../src/common/auth/decorators.js';
 import { Role } from '../src/generated/prisma/enums.js';
 import { PrismaService } from '../src/infra/prisma/prisma.service.js';
 import { setupApp } from '../src/setup-app.js';
+import { WorkerModule } from '../src/worker.module.js';
 
 export const PASSWORD = 'Password123!';
 export const E2E_EMAIL_DOMAIN = '@e2e.test';
@@ -32,11 +33,26 @@ export class RoleProbeController {
   }
 }
 
-export async function createTestApp(controllers: Type[] = []) {
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
+export interface TestAppOptions {
+  controllers?: Type[];
+  withWorker?: boolean;
+  overrides?: { token: unknown; value: unknown }[];
+}
+
+export async function createTestApp(options: TestAppOptions | Type[] = {}) {
+  const {
+    controllers = [],
+    withWorker = false,
+    overrides = [],
+  } = Array.isArray(options) ? { controllers: options } : options;
+  let builder = Test.createTestingModule({
+    imports: withWorker ? [AppModule, WorkerModule] : [AppModule],
     controllers,
-  }).compile();
+  });
+  for (const { token, value } of overrides) {
+    builder = builder.overrideProvider(token).useValue(value);
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ bufferLogs: true });
   setupApp(app);
   await app.init();
@@ -107,4 +123,6 @@ export async function cleanupE2eData(prisma: PrismaService) {
     }));
   } while (deleted > 0);
   await prisma.user.deleteMany({ where: e2eUsers });
+  await prisma.outboxEvent.deleteMany({});
+  await prisma.processedEvent.deleteMany({});
 }
