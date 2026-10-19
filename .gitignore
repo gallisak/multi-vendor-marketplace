@@ -13,3 +13,5 @@ coverage/
 !.vscode/extensions.json
 
 *.log
+
+backend/src/generated/

@@ -46,9 +46,21 @@ services:
       timeout: 3s
       retries: 10
 
+  migrate:
+    build:
+      context: ./backend
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mvm}:${POSTGRES_PASSWORD:-mvm}@postgres:5432/${POSTGRES_DB:-mvm}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
   api:
     build:
       context: ./backend
+      target: runtime
     env_file:
       - path: .env
         required: false
@@ -62,6 +74,8 @@ services:
       - '${API_PORT:-3001}:3000'
     restart: unless-stopped
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
