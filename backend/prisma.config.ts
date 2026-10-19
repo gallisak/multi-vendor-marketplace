@@ -2,7 +2,12 @@ import { config } from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'prisma/config';
 
-config({ path: fileURLToPath(new URL('../.env', import.meta.url)), quiet: true });
+const envFile = (name: string) => fileURLToPath(new URL(`../${name}`, import.meta.url));
+
+config({
+  path: [envFile(`.env.${process.env.NODE_ENV ?? 'development'}`), envFile('.env')],
+  quiet: true,
+});
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
