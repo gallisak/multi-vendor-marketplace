@@ -4,6 +4,7 @@ import { Role } from '../src/generated/prisma/enums.js';
 import { PrismaService } from '../src/infra/prisma/prisma.service.js';
 import { AccessTokenRevocationService } from '../src/modules/auth/access-token-revocation.service.js';
 import {
+  cleanupE2eData,
   createTestApp,
   loginAs,
   PASSWORD,
@@ -27,7 +28,7 @@ describe('Auth (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { endsWith: '@e2e.test' } } });
+    await cleanupE2eData(prisma);
     await app.close();
   });
 

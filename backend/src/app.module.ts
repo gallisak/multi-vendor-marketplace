@@ -10,6 +10,9 @@ import { PrismaModule } from './infra/prisma/prisma.module.js';
 import { RedisModule } from './infra/redis/redis.module.js';
 import { ThrottlingModule } from './infra/throttling/throttling.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CategoriesModule } from './modules/categories/categories.module.js';
+import { ProductsModule } from './modules/products/products.module.js';
+import { SellersModule } from './modules/sellers/sellers.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
@@ -28,6 +31,9 @@ import { UsersModule } from './modules/users/users.module.js';
     ThrottlingModule,
     UsersModule,
     AuthModule,
+    SellersModule,
+    CategoriesModule,
+    ProductsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

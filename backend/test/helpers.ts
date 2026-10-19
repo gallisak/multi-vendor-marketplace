@@ -9,6 +9,8 @@ import { PrismaService } from '../src/infra/prisma/prisma.service.js';
 import { setupApp } from '../src/setup-app.js';
 
 export const PASSWORD = 'Password123!';
+export const E2E_EMAIL_DOMAIN = '@e2e.test';
+export const E2E_SLUG_PREFIX = 'e2e-';
 
 @Controller('test-probe')
 export class RoleProbeController {
@@ -41,7 +43,12 @@ export async function createTestApp(controllers: Type[] = []) {
   return { app, prisma: app.get(PrismaService) };
 }
 
-export const uniqueEmail = (prefix = 'user') => `${prefix}-${randomUUID()}@e2e.test`;
+export const uniqueEmail = (prefix = 'user') => `${prefix}-${randomUUID()}${E2E_EMAIL_DOMAIN}`;
+
+export const uniqueSlug = (prefix = 'cat') =>
+  `${E2E_SLUG_PREFIX}${prefix}-${randomUUID().slice(0, 8)}`;
+
+export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 export async function registerUser(app: INestApplication, email = uniqueEmail()) {
   const res = await request(app.getHttpServer())
@@ -57,4 +64,47 @@ export async function loginAs(app: INestApplication, email: string) {
     .send({ email, password: PASSWORD })
     .expect(200);
   return res.body.accessToken as string;
+}
+
+export interface TestActor {
+  userId: string;
+  email: string;
+  token: string;
+  sellerId?: string;
+}
+
+export async function createActor(
+  app: INestApplication,
+  prisma: PrismaService,
+  role: Role,
+): Promise<TestActor> {
+  const { email, body } = await registerUser(app, uniqueEmail(role.toLowerCase()));
+  const userId = body.user.id as string;
+  let sellerId: string | undefined;
+
+  if (role !== Role.CUSTOMER) {
+    await prisma.user.update({ where: { id: userId }, data: { role } });
+  }
+  if (role === Role.SELLER) {
+    const seller = await prisma.seller.create({
+      data: { userId, storeName: `E2E Store ${randomUUID().slice(0, 8)}` },
+    });
+    sellerId = seller.id;
+  }
+
+  return { userId, email, token: await loginAs(app, email), sellerId };
+}
+
+export async function cleanupE2eData(prisma: PrismaService) {
+  const e2eUsers = { email: { endsWith: E2E_EMAIL_DOMAIN } };
+  await prisma.product.deleteMany({ where: { seller: { user: e2eUsers } } });
+  await prisma.seller.deleteMany({ where: { user: e2eUsers } });
+  await prisma.sellerApplication.deleteMany({ where: { user: e2eUsers } });
+  let deleted: number;
+  do {
+    ({ count: deleted } = await prisma.category.deleteMany({
+      where: { slug: { startsWith: E2E_SLUG_PREFIX }, children: { none: {} } },
+    }));
+  } while (deleted > 0);
+  await prisma.user.deleteMany({ where: e2eUsers });
 }
