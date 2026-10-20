@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { envFilePaths, validateEnv } from './config/env.schema.js';
+import { IdempotencyModule } from './idempotency/idempotency.module.js';
 import { LoggingModule } from './logging/logging.module.js';
 import { MetricsModule } from './metrics/metrics.module.js';
 import { OutboxModule } from './outbox/outbox.module.js';
@@ -22,6 +23,7 @@ import { RedisModule } from './redis/redis.module.js';
     MetricsModule,
     QueueModule,
     OutboxModule,
+    IdempotencyModule,
   ],
 })
 export class CoreModule {}

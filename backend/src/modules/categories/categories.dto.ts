@@ -2,8 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID, Length, Matches, ValidateIf } from 'class-validator';
 import { SLUG_PATTERN } from '../../common/slug.js';
-
-const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+import { trim } from '../../common/transforms.js';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Tablets' })

@@ -6,12 +6,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import argon2 from 'argon2';
-import { Prisma } from '../../generated/prisma/client.js';
 import type { User } from '../../generated/prisma/client.js';
 import { UsersService } from '../users/users.service.js';
 import type { IssuedTokens } from '../../common/auth/auth.types.js';
 import type { LoginDto, RegisterDto } from './auth.dto.js';
 import { TokenService } from './token.service.js';
+import { isUniqueViolation } from '../../common/prisma-errors.js';
 
 export interface AuthResult {
   user: User;
@@ -38,7 +38,7 @@ export class AuthService implements OnModuleInit {
     try {
       user = await this.users.create({ email: dto.email, name: dto.name, passwordHash });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (isUniqueViolation(error)) {
         throw new ConflictException('Email is already registered');
       }
       throw error;

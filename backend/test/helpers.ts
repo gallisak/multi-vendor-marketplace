@@ -113,6 +113,12 @@ export async function createActor(
 
 export async function cleanupE2eData(prisma: PrismaService) {
   const e2eUsers = { email: { endsWith: E2E_EMAIL_DOMAIN } };
+  await prisma.ledgerEntry.deleteMany({ where: { seller: { user: e2eUsers } } });
+  await prisma.order.deleteMany({
+    where: {
+      OR: [{ buyer: e2eUsers }, { sellerOrders: { some: { seller: { user: e2eUsers } } } }],
+    },
+  });
   await prisma.product.deleteMany({ where: { seller: { user: e2eUsers } } });
   await prisma.seller.deleteMany({ where: { user: e2eUsers } });
   await prisma.sellerApplication.deleteMany({ where: { user: e2eUsers } });

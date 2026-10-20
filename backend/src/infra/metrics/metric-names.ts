@@ -6,4 +6,6 @@ export const METRIC = {
   outboxPublishFailures: 'outbox_publish_failures_total',
   outboxPending: 'outbox_pending_events',
   searchFallbacks: 'search_fallbacks_total',
+  ordersPlaced: 'orders_placed_total',
+  checkoutRejections: 'checkout_rejections_total',
 } as const;

@@ -22,11 +22,10 @@ import {
 } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination.js';
 import { AuctionStatus, ProductStatus, ProductType } from '../../generated/prisma/enums.js';
+import { trim } from '../../common/transforms.js';
 
 const MAX_PRICE_MINOR = 1_000_000_000;
 const MAX_STOCK = 1_000_000;
-
-const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
 export class CreateAuctionDto {
   @ApiProperty({ example: 200_000, description: 'Minor units (kopecks)' })

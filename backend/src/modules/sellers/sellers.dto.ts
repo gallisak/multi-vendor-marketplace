@@ -3,8 +3,7 @@ import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination.js';
 import { SellerApplicationStatus } from '../../generated/prisma/enums.js';
-
-const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+import { trim } from '../../common/transforms.js';
 
 export class CreateSellerApplicationDto {
   @ApiProperty({ example: 'Home Goods' })

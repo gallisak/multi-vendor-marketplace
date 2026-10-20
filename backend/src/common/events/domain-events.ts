@@ -5,6 +5,12 @@ export interface DomainEventPayloads {
   'product.changed': { productId: string; reason: ProductChangeReason };
   'category.changed': { categoryId: string };
   'seller.approved': { sellerId: string; userId: string; storeName: string };
+  'order.placed': {
+    orderId: string;
+    buyerId: string;
+    totalMinor: string;
+    sellerOrders: { sellerOrderId: string; sellerId: string }[];
+  };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -47,5 +53,14 @@ export const sellerApproved = (
   type: 'seller.approved',
   aggregateType: 'seller',
   aggregateId: payload.sellerId,
+  payload,
+});
+
+export const orderPlaced = (
+  payload: DomainEventPayloads['order.placed'],
+): NewDomainEvent<'order.placed'> => ({
+  type: 'order.placed',
+  aggregateType: 'order',
+  aggregateId: payload.orderId,
   payload,
 });

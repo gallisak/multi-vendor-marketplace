@@ -41,6 +41,15 @@ const providers = [
     help: 'Outbox events waiting to be published',
   }),
   makeCounterProvider({
+    name: METRIC.ordersPlaced,
+    help: 'Orders created by checkout',
+  }),
+  makeCounterProvider({
+    name: METRIC.checkoutRejections,
+    help: 'Checkouts rejected by business rules',
+    labelNames: ['reason'],
+  }),
+  makeCounterProvider({
     name: METRIC.searchFallbacks,
     help: 'Search requests served from the database fallback',
     labelNames: ['reason'],

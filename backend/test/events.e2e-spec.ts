@@ -252,6 +252,18 @@ describe('Outbox, queues and search sync (e2e)', () => {
         prisma.refreshToken.create({ data: token(ago(-7), null) }),
       ]);
 
+      const idempotencyKey = (expiresAt: Date) => ({
+        userId: seller.userId,
+        scope: 'CHECKOUT' as const,
+        key: randomUUID(),
+        requestHash: 'hash',
+        expiresAt,
+      });
+      const [staleKey, liveKey] = await Promise.all([
+        prisma.idempotencyKey.create({ data: idempotencyKey(ago(1)) }),
+        prisma.idempotencyKey.create({ data: idempotencyKey(ago(-1)) }),
+      ]);
+
       await app.get(MaintenanceService).cleanup();
 
       const remainingEvents = await prisma.outboxEvent.findMany({
@@ -268,6 +280,10 @@ describe('Outbox, queues and search sync (e2e)', () => {
         where: { id: { in: [expired.id, longRevoked.id, active.id] } },
       });
       expect(remainingTokens.map((t) => t.id)).toEqual([active.id]);
+      const remainingKeys = await prisma.idempotencyKey.findMany({
+        where: { id: { in: [staleKey.id, liveKey.id] } },
+      });
+      expect(remainingKeys.map((k) => k.id)).toEqual([liveKey.id]);
     });
   });
 

@@ -1,7 +1,6 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { sellerApproved } from '../../common/events/domain-events.js';
 import { toPage, toSkipTake } from '../../common/pagination.js';
-import { Prisma } from '../../generated/prisma/client.js';
 import { Role, SellerApplicationStatus } from '../../generated/prisma/enums.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { type Transaction, UnitOfWork } from '../../infra/prisma/unit-of-work.js';
@@ -14,9 +13,7 @@ import type {
   SellerApplicationDto,
   SellerApplicationsQueryDto,
 } from './sellers.dto.js';
-
-const isUniqueViolation = (error: unknown) =>
-  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+import { isUniqueViolation } from '../../common/prisma-errors.js';
 
 @Injectable()
 export class SellerApplicationsService {

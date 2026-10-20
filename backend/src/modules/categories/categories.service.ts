@@ -7,12 +7,12 @@ import {
 } from '@nestjs/common';
 import { categoryChanged } from '../../common/events/domain-events.js';
 import { slugify } from '../../common/slug.js';
-import { Prisma } from '../../generated/prisma/client.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { CategoriesRepository } from './categories.repository.js';
 import type { CategoryDto, CreateCategoryDto, UpdateCategoryDto } from './categories.dto.js';
 import { buildTree, CategoryNode, descendantIds, wouldCreateCycle } from './category-tree.js';
+import { isUniqueViolation } from '../../common/prisma-errors.js';
 
 const CACHE_TTL_MS = 30_000;
 
@@ -125,7 +125,7 @@ export class CategoriesService {
     try {
       return await operation();
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (isUniqueViolation(error)) {
         throw new ConflictException('Category slug already exists');
       }
       throw error;

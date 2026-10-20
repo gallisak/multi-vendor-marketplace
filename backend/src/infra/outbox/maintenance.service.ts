@@ -28,7 +28,7 @@ export class MaintenanceService implements OnApplicationBootstrap, OnApplication
 
   async cleanup(now = new Date()) {
     const before = (ms: number) => new Date(now.getTime() - ms);
-    const [outbox, processed, refreshTokens] = await Promise.all([
+    const [outbox, processed, refreshTokens, idempotencyKeys] = await Promise.all([
       this.prisma.outboxEvent.deleteMany({
         where: { publishedAt: { lt: before(RETENTION.publishedOutboxEventsMs) } },
       }),
@@ -43,11 +43,13 @@ export class MaintenanceService implements OnApplicationBootstrap, OnApplication
           ],
         },
       }),
+      this.prisma.idempotencyKey.deleteMany({ where: { expiresAt: { lt: now } } }),
     ]);
     return {
       outboxEvents: outbox.count,
       processedEvents: processed.count,
       refreshTokens: refreshTokens.count,
+      idempotencyKeys: idempotencyKeys.count,
     };
   }
 
