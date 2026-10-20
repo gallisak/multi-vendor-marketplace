@@ -48,3 +48,11 @@ export class AuthResponseDto {
   @ApiProperty({ type: PublicUser })
   user: PublicUser;
 }
+
+export class AuthProvidersDto {
+  @ApiProperty()
+  password: boolean;
+
+  @ApiProperty({ description: 'False when Google OAuth credentials are not configured' })
+  google: boolean;
+}

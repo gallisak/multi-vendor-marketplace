@@ -14,4 +14,6 @@ export const METRIC = {
   auctionsClosed: 'auctions_closed_total',
   wsConnections: 'ws_connections',
   realtimeMessages: 'realtime_messages_total',
+  oauthSignIns: 'oauth_sign_ins_total',
+  cacheRequests: 'cache_requests_total',
 } as const;

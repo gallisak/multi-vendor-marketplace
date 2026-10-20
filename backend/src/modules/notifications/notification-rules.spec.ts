@@ -44,6 +44,22 @@ describe('notificationFor', () => {
     });
   });
 
+  it('warns the user that Google sign-in was linked to their account', () => {
+    expect(
+      notificationFor(
+        event('user.google_linked', {
+          userId: 'u1',
+          email: 'jane@example.com',
+          passwordRemoved: true,
+        }),
+      ),
+    ).toEqual({
+      userId: 'u1',
+      type: 'user.google_linked',
+      payload: { email: 'jane@example.com', passwordRemoved: 'true' },
+    });
+  });
+
   it('tells the seller about a new paid order', () => {
     expect(
       notificationFor(

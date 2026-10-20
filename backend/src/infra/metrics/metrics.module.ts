@@ -73,6 +73,16 @@ const providers = [
     help: 'Open WebSocket connections on this instance',
   }),
   makeCounterProvider({
+    name: METRIC.oauthSignIns,
+    help: 'Google sign-in attempts by outcome',
+    labelNames: ['outcome'],
+  }),
+  makeCounterProvider({
+    name: METRIC.cacheRequests,
+    help: 'Catalog cache lookups by result',
+    labelNames: ['cache', 'result'],
+  }),
+  makeCounterProvider({
     name: METRIC.realtimeMessages,
     help: 'Realtime messages pushed to WebSocket rooms',
     labelNames: ['event'],

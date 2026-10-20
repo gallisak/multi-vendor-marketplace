@@ -61,4 +61,28 @@ describe('validateEnv in production', () => {
     expect(validateEnv({ ...validEnv, LOG_PRETTY: 'true' }).LOG_PRETTY).toBe(true);
     expect(validateEnv(validEnv).LOG_PRETTY).toBe(false);
   });
+
+  it('treats empty Google credentials as Google sign-in being off', () => {
+    const env = validateEnv({ ...validEnv, GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '' });
+
+    expect(env.GOOGLE_CLIENT_ID).toBeUndefined();
+    expect(env.CATALOG_CACHE_TTL_SECONDS).toBe(60);
+  });
+
+  it('requires the full set of Google settings once one is given', () => {
+    expect(() => validateEnv({ ...validEnv, GOOGLE_CLIENT_ID: 'id' })).toThrow(
+      /GOOGLE_CLIENT_SECRET/,
+    );
+    expect(() =>
+      validateEnv({ ...validEnv, GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' }),
+    ).toThrow(/GOOGLE_CALLBACK_URL/);
+    expect(
+      validateEnv({
+        ...validEnv,
+        GOOGLE_CLIENT_ID: 'id',
+        GOOGLE_CLIENT_SECRET: 'secret',
+        GOOGLE_CALLBACK_URL: 'http://localhost:3001/api/auth/google/callback',
+      }).GOOGLE_CLIENT_ID,
+    ).toBe('id');
+  });
 });

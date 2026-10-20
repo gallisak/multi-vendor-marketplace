@@ -14,6 +14,7 @@ export interface DomainEventPayloads {
   'product.changed': { productId: string; reason: ProductChangeReason };
   'category.changed': { categoryId: string };
   'seller.approved': { sellerId: string; userId: string; storeName: string };
+  'user.google_linked': { userId: string; email: string; passwordRemoved: boolean };
   'order.placed': {
     orderId: string;
     buyerId: string;
@@ -127,6 +128,15 @@ export const categoryChanged = (categoryId: string): NewDomainEvent<'category.ch
   aggregateType: 'category',
   aggregateId: categoryId,
   payload: { categoryId },
+});
+
+export const googleAccountLinked = (
+  payload: DomainEventPayloads['user.google_linked'],
+): NewDomainEvent<'user.google_linked'> => ({
+  type: 'user.google_linked',
+  aggregateType: 'user',
+  aggregateId: payload.userId,
+  payload,
 });
 
 export const sellerApproved = (

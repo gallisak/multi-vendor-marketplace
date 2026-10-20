@@ -12,8 +12,23 @@ export class UsersRepository extends PrismaRepository {
     return this.db(tx).user.findUnique({ where: { email } });
   }
 
-  create(data: { email: string; name: string; passwordHash: string }, tx?: Transaction) {
+  findByGoogleId(googleId: string, tx?: Transaction) {
+    return this.db(tx).user.findUnique({ where: { googleId } });
+  }
+
+  create(
+    data: { email: string; name: string; passwordHash?: string; googleId?: string },
+    tx?: Transaction,
+  ) {
     return this.db(tx).user.create({ data });
+  }
+
+  async linkGoogleAccount(userId: string, googleId: string, tx?: Transaction) {
+    const { count } = await this.db(tx).user.updateMany({
+      where: { id: userId, googleId: null },
+      data: { googleId, passwordHash: null },
+    });
+    return count === 1;
   }
 
   async promote(userId: string, from: Role, to: Role, tx?: Transaction) {

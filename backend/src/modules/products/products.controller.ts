@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
 import {
   ApiConflictResponse,
@@ -17,9 +18,11 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import type { Response } from 'express';
 import type { AuthUser } from '../../common/auth/auth.types.js';
 import { CurrentUser, Public, Roles } from '../../common/auth/decorators.js';
 import { Role } from '../../generated/prisma/enums.js';
+import { CatalogCacheService } from './catalog-cache.service.js';
 import { CatalogService } from './catalog.service.js';
 import { ProductModerationService } from './product-moderation.service.js';
 import {
@@ -39,18 +42,25 @@ import { SellerProductsService } from './seller-products.service.js';
 @Public()
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly catalog: CatalogService) {}
+  constructor(
+    private readonly catalog: CatalogService,
+    private readonly cache: CatalogCacheService,
+  ) {}
 
   @Get()
-  list(@Query() query: CatalogQueryDto) {
-    return this.catalog.list(query);
+  async list(@Query() query: CatalogQueryDto, @Res({ passthrough: true }) res: Response) {
+    const { value, cache } = await this.cache.list(query, () => this.catalog.list(query));
+    res.setHeader('X-Cache', cache);
+    return value;
   }
 
   @Get(':id')
   @ApiOkResponse({ type: ProductDto })
   @ApiNotFoundResponse()
-  get(@Param('id', ParseUUIDPipe) id: string) {
-    return this.catalog.get(id);
+  async get(@Param('id', ParseUUIDPipe) id: string, @Res({ passthrough: true }) res: Response) {
+    const { value, cache } = await this.cache.product(id, () => this.catalog.get(id));
+    res.setHeader('X-Cache', cache);
+    return value;
   }
 
   @Get(':id/similar')

@@ -1,8 +1,9 @@
 import { CONSUMERS, queueName, subscribersOf } from './subscriptions.js';
 
 describe('event subscriptions', () => {
-  it('routes product changes to search sync only', () => {
-    expect(subscribersOf('product.changed')).toEqual(['search-sync', 'realtime']);
+  it('routes product changes to search, live updates and the catalog cache', () => {
+    expect(subscribersOf('product.changed')).toEqual(['search-sync', 'realtime', 'catalog-cache']);
+    expect(subscribersOf('category.changed')).toEqual(['search-sync', 'catalog-cache']);
   });
 
   it('tells sellers about payouts', () => {
@@ -11,6 +12,10 @@ describe('event subscriptions', () => {
 
   it('routes seller approval to notifications', () => {
     expect(subscribersOf('seller.approved')).toEqual(['notifications']);
+  });
+
+  it('tells the user when Google sign-in is linked to their account', () => {
+    expect(subscribersOf('user.google_linked')).toEqual(['notifications']);
   });
 
   it('starts the payment saga when an order is placed', () => {

@@ -17,6 +17,7 @@ export const envSchema = z
       .default('info'),
     LOG_PRETTY: z.stringbool().default(false),
     CORS_ORIGIN: z.string().default('http://localhost:5173'),
+    FRONTEND_URL: z.url().default('http://localhost:5173'),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
     LOGIN_IP_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
 
@@ -40,6 +41,8 @@ export const envSchema = z
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     GOOGLE_CALLBACK_URL: z.url().optional(),
+    CATALOG_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).max(3600).default(60),
+    CATALOG_LIST_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).max(3600).default(10),
 
     PLATFORM_COMMISSION_PERCENT: z.coerce.number().min(0).max(100).default(10),
     PAYMENT_MOCK_DECLINE_ABOVE_MINOR: z.coerce.number().int().positive().default(50_000_000),
@@ -50,7 +53,27 @@ export const envSchema = z
     BID_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30),
     REALTIME_AUTH_RECHECK_MS: z.coerce.number().int().min(100).default(30_000),
   })
+  .transform((env) => ({
+    ...env,
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID || undefined,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET || undefined,
+  }))
   .superRefine((env, ctx) => {
+    const google = [env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET];
+    if (google.some(Boolean) && !google.every(Boolean)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GOOGLE_CLIENT_SECRET'],
+        message: 'set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither',
+      });
+    }
+    if (google.every(Boolean) && !env.GOOGLE_CALLBACK_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GOOGLE_CALLBACK_URL'],
+        message: 'is required when Google sign-in is configured',
+      });
+    }
     if (env.NODE_ENV !== 'production') {
       return;
     }

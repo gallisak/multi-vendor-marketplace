@@ -47,4 +47,11 @@ export class RefreshTokensRepository extends PrismaRepository {
       data: { revokedAt: new Date() },
     });
   }
+
+  revokeAllForUser(userId: string, tx?: Transaction) {
+    return this.db(tx).refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
 }

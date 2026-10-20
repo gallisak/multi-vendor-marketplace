@@ -68,6 +68,15 @@ export function notificationsFor(event: PublishedEvent): NotificationDraft[] {
 
 export function notificationFor(event: PublishedEvent): NotificationDraft | null {
   switch (event.type) {
+    case 'user.google_linked': {
+      const { userId, email, passwordRemoved } = (event as PublishedEvent<'user.google_linked'>)
+        .payload;
+      return {
+        userId,
+        type: event.type,
+        payload: { email, passwordRemoved: String(passwordRemoved) },
+      };
+    }
     case 'payout.paid': {
       const p = (event as PublishedEvent<'payout.paid'>).payload;
       return {

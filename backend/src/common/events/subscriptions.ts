@@ -6,6 +6,7 @@ export const CONSUMERS = [
   'payments',
   'realtime',
   'analytics',
+  'catalog-cache',
 ] as const;
 export type Consumer = (typeof CONSUMERS)[number];
 
@@ -13,6 +14,7 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
   'search-sync': ['product.changed', 'category.changed'],
   notifications: [
     'seller.approved',
+    'user.google_linked',
     'seller-order.paid',
     'seller-order.status_changed',
     'order.payment_failed',
@@ -38,6 +40,7 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
     'payment.refund_requested',
   ],
   analytics: ['order.payment_captured', 'payment.refund_requested'],
+  'catalog-cache': ['product.changed', 'category.changed'],
 };
 
 export const queueName = (consumer: Consumer) => `events.${consumer}`;

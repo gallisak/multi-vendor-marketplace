@@ -7,6 +7,7 @@ import { AnalyticsWorkerModule } from './modules/analytics/analytics.module.js';
 import { AuctionsWorkerModule } from './modules/auctions/auctions.module.js';
 import { LedgerWorkerModule } from './modules/ledger/ledger.module.js';
 import { NotificationsWorkerModule } from './modules/notifications/notifications.module.js';
+import { CatalogCacheWorkerModule } from './modules/products/products.module.js';
 import { PaymentsWorkerModule } from './modules/payments/payments.module.js';
 import { RealtimeWorkerModule } from './modules/realtime/realtime.module.js';
 import { SearchSyncModule } from './modules/search/search.module.js';
@@ -22,6 +23,7 @@ import { SearchSyncModule } from './modules/search/search.module.js';
     AuctionsWorkerModule,
     RealtimeWorkerModule,
     AnalyticsWorkerModule,
+    CatalogCacheWorkerModule,
   ],
   providers: [OutboxRelayService, MaintenanceService],
 })
