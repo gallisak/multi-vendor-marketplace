@@ -50,6 +50,15 @@ const providers = [
     labelNames: ['reason'],
   }),
   makeCounterProvider({
+    name: METRIC.payments,
+    help: 'Payment attempts by outcome',
+    labelNames: ['status'],
+  }),
+  makeCounterProvider({
+    name: METRIC.payouts,
+    help: 'Mock transfers paid out to sellers',
+  }),
+  makeCounterProvider({
     name: METRIC.searchFallbacks,
     help: 'Search requests served from the database fallback',
     labelNames: ['reason'],

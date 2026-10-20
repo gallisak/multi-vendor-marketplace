@@ -8,4 +8,6 @@ export const METRIC = {
   searchFallbacks: 'search_fallbacks_total',
   ordersPlaced: 'orders_placed_total',
   checkoutRejections: 'checkout_rejections_total',
+  payments: 'payments_total',
+  payouts: 'payouts_total',
 } as const;

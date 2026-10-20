@@ -11,6 +11,26 @@ export interface DomainEventPayloads {
     totalMinor: string;
     sellerOrders: { sellerOrderId: string; sellerId: string }[];
   };
+  'order.payment_captured': { orderId: string; buyerId: string; amountMinor: string };
+  'order.payment_failed': { orderId: string; buyerId: string; reason: string };
+  'payout.paid': { payoutId: string; sellerId: string; sellerUserId: string; amountMinor: string };
+  'seller-order.paid': {
+    sellerOrderId: string;
+    orderId: string;
+    sellerId: string;
+    sellerUserId: string;
+    subtotalMinor: string;
+  };
+  'seller-order.status_changed': {
+    sellerOrderId: string;
+    orderId: string;
+    sellerId: string;
+    buyerId: string;
+    from: string;
+    to: string;
+    orderStatus: string;
+    reason: string | null;
+  };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -62,5 +82,50 @@ export const orderPlaced = (
   type: 'order.placed',
   aggregateType: 'order',
   aggregateId: payload.orderId,
+  payload,
+});
+
+export const paymentCaptured = (
+  payload: DomainEventPayloads['order.payment_captured'],
+): NewDomainEvent<'order.payment_captured'> => ({
+  type: 'order.payment_captured',
+  aggregateType: 'order',
+  aggregateId: payload.orderId,
+  payload,
+});
+
+export const paymentFailed = (
+  payload: DomainEventPayloads['order.payment_failed'],
+): NewDomainEvent<'order.payment_failed'> => ({
+  type: 'order.payment_failed',
+  aggregateType: 'order',
+  aggregateId: payload.orderId,
+  payload,
+});
+
+export const sellerOrderPaid = (
+  payload: DomainEventPayloads['seller-order.paid'],
+): NewDomainEvent<'seller-order.paid'> => ({
+  type: 'seller-order.paid',
+  aggregateType: 'seller-order',
+  aggregateId: payload.sellerOrderId,
+  payload,
+});
+
+export const sellerOrderStatusChanged = (
+  payload: DomainEventPayloads['seller-order.status_changed'],
+): NewDomainEvent<'seller-order.status_changed'> => ({
+  type: 'seller-order.status_changed',
+  aggregateType: 'seller-order',
+  aggregateId: payload.sellerOrderId,
+  payload,
+});
+
+export const payoutPaid = (
+  payload: DomainEventPayloads['payout.paid'],
+): NewDomainEvent<'payout.paid'> => ({
+  type: 'payout.paid',
+  aggregateType: 'payout',
+  aggregateId: payload.payoutId,
   payload,
 });

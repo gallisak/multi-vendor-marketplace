@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Transaction } from '../../infra/prisma/unit-of-work.js';
 import { LedgerRepository } from './ledger.repository.js';
-import { saleEntries } from './ledger.rules.js';
+import { cancellationEntries, saleEntries } from './ledger.rules.js';
 
 export interface BookedSellerOrder {
   id: string;
@@ -22,5 +22,26 @@ export class LedgerService {
         tx,
       );
     }
+  }
+
+  recordCancellation(
+    cancellation: {
+      sellerId: string;
+      sellerOrderId: string;
+      openSubtotalMinor: bigint;
+      openCommissionMinor: bigint;
+    },
+    tx: Transaction,
+  ) {
+    return this.ledger.add(
+      { sellerId: cancellation.sellerId, sellerOrderId: cancellation.sellerOrderId },
+      cancellationEntries(cancellation.openSubtotalMinor, cancellation.openCommissionMinor),
+      tx,
+    );
+  }
+
+  async balance(sellerId: string) {
+    const { pending, paidOut } = await this.ledger.balances(sellerId);
+    return { pendingMinor: Number(pending), paidOutMinor: Number(paidOut) };
   }
 }

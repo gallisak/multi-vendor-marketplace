@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -51,6 +61,19 @@ export class OrdersController {
   @Get()
   list(@CurrentUser() user: AuthUser, @Query() query: PaginationQueryDto) {
     return this.orders.listForBuyer(user.id, query);
+  }
+
+  @Post(':orderId/seller-orders/:sellerOrderId/confirm-delivery')
+  @HttpCode(200)
+  @ApiOkResponse({ type: OrderDto, description: 'SHIPPED -> COMPLETED for one seller order' })
+  @ApiNotFoundResponse({ description: 'Not found or belongs to another buyer' })
+  @ApiConflictResponse({ description: 'Seller order is not shipped' })
+  confirmDelivery(
+    @CurrentUser() user: AuthUser,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Param('sellerOrderId', ParseUUIDPipe) sellerOrderId: string,
+  ) {
+    return this.orders.confirmDelivery(user.id, orderId, sellerOrderId);
   }
 
   @Get(':id')

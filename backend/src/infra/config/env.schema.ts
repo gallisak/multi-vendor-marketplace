@@ -42,6 +42,9 @@ export const envSchema = z
     GOOGLE_CALLBACK_URL: z.url().optional(),
 
     PLATFORM_COMMISSION_PERCENT: z.coerce.number().min(0).max(100).default(10),
+    PAYMENT_MOCK_DECLINE_ABOVE_MINOR: z.coerce.number().int().positive().default(50_000_000),
+    PAYOUT_HOLD: duration('7d'),
+    PAYOUT_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') {

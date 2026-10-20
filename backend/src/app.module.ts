@@ -7,6 +7,7 @@ import { ThrottlingModule } from './infra/throttling/throttling.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { CategoriesModule } from './modules/categories/categories.module.js';
+import { LedgerModule } from './modules/ledger/ledger.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
@@ -27,6 +28,7 @@ import { UsersModule } from './modules/users/users.module.js';
     SearchModule,
     NotificationsModule,
     CartModule,
+    LedgerModule,
     OrdersModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],

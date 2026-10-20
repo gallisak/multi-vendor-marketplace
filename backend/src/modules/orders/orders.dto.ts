@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { PaginationQueryDto } from '../../common/pagination.js';
 import { OrderStatus, PaymentStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
 
 export class CheckoutDto {
@@ -30,6 +31,7 @@ export class BuyerSellerOrderDto {
   @ApiProperty({ enum: SellerOrderStatus }) status: SellerOrderStatus;
   @ApiProperty() subtotalMinor: number;
   @ApiProperty() refundedMinor: number;
+  @ApiPropertyOptional({ nullable: true, type: String }) cancelReason: string | null;
   @ApiProperty({ type: [OrderItemDto] }) items: OrderItemDto[];
 }
 
@@ -41,4 +43,28 @@ export class OrderDto {
   @ApiProperty() refundedMinor: number;
   @ApiProperty({ type: [BuyerSellerOrderDto] }) sellerOrders: BuyerSellerOrderDto[];
   @ApiProperty() createdAt: Date;
+}
+
+export class SellerOrdersQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: SellerOrderStatus })
+  @IsOptional()
+  @IsEnum(SellerOrderStatus)
+  status?: SellerOrderStatus;
+}
+
+export class SellerOrderDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ format: 'uuid' }) orderId: string;
+  @ApiProperty({ enum: SellerOrderStatus }) status: SellerOrderStatus;
+  @ApiProperty({ enum: PaymentStatus }) paymentStatus: PaymentStatus;
+  @ApiProperty() subtotalMinor: number;
+  @ApiProperty({ example: 1000 }) commissionRateBps: number;
+  @ApiProperty() commissionMinor: number;
+  @ApiProperty() refundedMinor: number;
+  @ApiProperty({ description: 'What the seller receives after commission and refunds' })
+  payoutMinor: number;
+  @ApiPropertyOptional({ nullable: true, type: String }) cancelReason: string | null;
+  @ApiProperty({ type: [OrderItemDto] }) items: OrderItemDto[];
+  @ApiProperty() createdAt: Date;
+  @ApiProperty() updatedAt: Date;
 }

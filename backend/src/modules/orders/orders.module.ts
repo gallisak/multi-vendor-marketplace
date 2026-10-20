@@ -1,15 +1,16 @@
 import { Module } from '@nestjs/common';
 import { CartModule } from '../cart/cart.module.js';
-import { LedgerCoreModule } from '../ledger/ledger.module.js';
+import { SellersModule } from '../sellers/sellers.module.js';
 import { CheckoutService } from './checkout.service.js';
-import { InventoryRepository } from './inventory.repository.js';
+import { OrdersCoreModule } from './orders-core.module.js';
 import { OrdersController } from './orders.controller.js';
-import { OrdersRepository } from './orders.repository.js';
 import { OrdersService } from './orders.service.js';
+import { SellerOrdersController } from './seller-orders.controller.js';
+import { SellerOrdersService } from './seller-orders.service.js';
 
 @Module({
-  imports: [CartModule, LedgerCoreModule],
-  controllers: [OrdersController],
-  providers: [CheckoutService, OrdersService, OrdersRepository, InventoryRepository],
+  imports: [OrdersCoreModule, SellersModule, CartModule],
+  controllers: [OrdersController, SellerOrdersController],
+  providers: [CheckoutService, OrdersService, SellerOrdersService],
 })
 export class OrdersModule {}

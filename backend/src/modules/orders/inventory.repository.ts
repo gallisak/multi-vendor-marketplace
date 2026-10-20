@@ -21,4 +21,11 @@ export class InventoryRepository extends PrismaRepository {
       RETURNING id, seller_id AS "sellerId", title, price_minor AS "priceMinor"`;
     return reserved;
   }
+
+  async restock(productId: string, quantity: number, tx: Transaction) {
+    await tx.product.update({
+      where: { id: productId },
+      data: { stock: { increment: quantity }, version: { increment: 1 } },
+    });
+  }
 }

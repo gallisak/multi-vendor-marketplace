@@ -1,0 +1,152 @@
+import { INestApplication } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import request from 'supertest';
+import { ProductStatus, Role } from '../src/generated/prisma/enums.js';
+import { PrismaService } from '../src/infra/prisma/prisma.service.js';
+import {
+  bearer,
+  cleanupE2eData,
+  createActor,
+  createTestApp,
+  TestActor,
+  uniqueSlug,
+} from './helpers.js';
+
+const WAIT = { timeout: 15_000, interval: 100 };
+const PAST_HOLD = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+describe('Seller payouts (e2e)', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let seller: TestActor;
+  let admin: TestActor;
+  let categoryId: string;
+  const http = () => request(app.getHttpServer());
+
+  const deliveredOrder = async (buyer: TestActor, priceMinor: number) => {
+    const product = await prisma.product.create({
+      data: {
+        sellerId: seller.sellerId!,
+        categoryId,
+        title: `Payout ${uniqueSlug('p')}`,
+        description: 'Payout test product',
+        priceMinor,
+        stock: 5,
+        status: ProductStatus.ACTIVE,
+      },
+    });
+    await http()
+      .put(`/api/cart/items/${product.id}`)
+      .set(bearer(buyer.token))
+      .send({ quantity: 1 })
+      .expect(200);
+    const res = await http()
+      .post('/api/orders/checkout')
+      .set(bearer(buyer.token))
+      .set('Idempotency-Key', randomUUID())
+      .send({})
+      .expect(201);
+    const orderId = res.body.id as string;
+    const sellerOrderId = res.body.sellerOrders[0].id as string;
+    await vi.waitFor(async () => {
+      const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+      expect(order.paymentStatus).toBe('CAPTURED');
+    }, WAIT);
+    for (const action of ['accept', 'ship']) {
+      await http()
+        .post(`/api/seller/orders/${sellerOrderId}/${action}`)
+        .set(bearer(seller.token))
+        .expect(200);
+    }
+    await http()
+      .post(`/api/orders/${orderId}/seller-orders/${sellerOrderId}/confirm-delivery`)
+      .set(bearer(buyer.token))
+      .expect(200);
+    return { orderId, sellerOrderId };
+  };
+
+  const pastHold = (sellerOrderId: string) =>
+    prisma.sellerOrder.update({ where: { id: sellerOrderId }, data: { completedAt: PAST_HOLD } });
+
+  const payouts = () => http().get('/api/seller/payouts').set(bearer(seller.token)).expect(200);
+
+  beforeAll(async () => {
+    ({ app, prisma } = await createTestApp({ withWorker: true }));
+    [seller, admin] = await Promise.all([
+      createActor(app, prisma, Role.SELLER),
+      createActor(app, prisma, Role.ADMIN),
+    ]);
+    categoryId = (
+      await prisma.category.create({ data: { name: 'E2E Payouts', slug: uniqueSlug('payout') } })
+    ).id;
+  });
+
+  afterAll(async () => {
+    await cleanupE2eData(prisma);
+    await app.close();
+  });
+
+  it('holds earnings until the hold period ends, then pays them out once', async () => {
+    const buyer = await createActor(app, prisma, Role.CUSTOMER);
+    const order = await deliveredOrder(buyer, 20_000);
+
+    const completed = await prisma.sellerOrder.findUniqueOrThrow({
+      where: { id: order.sellerOrderId },
+    });
+    expect(completed.completedAt).toBeInstanceOf(Date);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const held = await payouts();
+    expect(held.body).toMatchObject({ pendingMinor: 18_000, paidOutMinor: 0, total: 0 });
+
+    await pastHold(order.sellerOrderId);
+
+    await vi.waitFor(async () => {
+      const paid = await payouts();
+      expect(paid.body).toMatchObject({ pendingMinor: 0, paidOutMinor: 18_000, total: 1 });
+      expect(paid.body.items[0]).toMatchObject({
+        sellerId: seller.sellerId,
+        amountMinor: 18_000,
+        entriesSettled: 2,
+      });
+      expect(paid.body.items[0].providerRef).toMatch(/^mock_transfer_/);
+    }, WAIT);
+
+    const entries = await prisma.ledgerEntry.findMany({ where: { sellerId: seller.sellerId } });
+    const payoutEntry = entries.find((entry) => entry.type === 'PAYOUT')!;
+    expect(payoutEntry).toMatchObject({ amountMinor: -18_000n, sellerOrderId: null });
+    expect(entries.every((entry) => entry.payoutId === payoutEntry.payoutId)).toBe(true);
+    expect(entries.reduce((sum, entry) => sum + entry.amountMinor, 0n)).toBe(0n);
+
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(await prisma.payout.count({ where: { sellerId: seller.sellerId } })).toBe(1);
+    await vi.waitFor(async () => {
+      const notifications = await prisma.notification.findMany({
+        where: { userId: seller.userId, type: 'payout.paid' },
+      });
+      expect(notifications.map((n) => n.payload)).toEqual([
+        { payoutId: payoutEntry.payoutId, amountMinor: '18000' },
+      ]);
+    }, WAIT);
+  });
+
+  it('shows payouts to admins and keeps them private between sellers', async () => {
+    const [other, customer] = await Promise.all([
+      createActor(app, prisma, Role.SELLER),
+      createActor(app, prisma, Role.CUSTOMER),
+    ]);
+
+    const all = await http()
+      .get(`/api/admin/payouts?sellerId=${seller.sellerId}`)
+      .set(bearer(admin.token))
+      .expect(200);
+    expect(all.body.total).toBe(1);
+    expect(all.body.items.every((p: { sellerId: string }) => p.sellerId === seller.sellerId)).toBe(
+      true,
+    );
+
+    const own = await http().get('/api/seller/payouts').set(bearer(other.token)).expect(200);
+    expect(own.body).toMatchObject({ total: 0, pendingMinor: 0, paidOutMinor: 0 });
+    await http().get('/api/seller/payouts').set(bearer(customer.token)).expect(403);
+    await http().get('/api/admin/payouts').set(bearer(seller.token)).expect(403);
+  });
+});

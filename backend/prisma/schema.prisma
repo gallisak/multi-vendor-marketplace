@@ -171,6 +171,7 @@ model Seller {
   products     Product[]
   sellerOrders SellerOrder[]
   ledger       LedgerEntry[]
+  payouts      Payout[]
   dailyStats   SalesDaily[]
 
   @@map("sellers")
@@ -325,6 +326,7 @@ model SellerOrder {
   commissionMinor   BigInt            @map("commission_minor")
   refundedMinor     BigInt            @default(0) @map("refunded_minor")
   cancelReason      String?           @map("cancel_reason")
+  completedAt       DateTime?         @map("completed_at") @db.Timestamptz(3)
   version           Int               @default(0)
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -339,6 +341,7 @@ model SellerOrder {
   @@unique([orderId, sellerId])
   @@index([sellerId, status, createdAt])
   @@index([status, createdAt])
+  @@index([status, completedAt])
   @@map("seller_orders")
 }
 
@@ -402,6 +405,7 @@ model LedgerEntry {
   sellerId      String          @map("seller_id") @db.Uuid
   sellerOrderId String?         @map("seller_order_id") @db.Uuid
   refundId      String?         @map("refund_id") @db.Uuid
+  payoutId      String?         @map("payout_id") @db.Uuid
   type          LedgerEntryType
   amountMinor   BigInt          @map("amount_minor")
   createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -409,12 +413,30 @@ model LedgerEntry {
   seller      Seller       @relation(fields: [sellerId], references: [id])
   sellerOrder SellerOrder? @relation(fields: [sellerOrderId], references: [id])
   refund      Refund?      @relation(fields: [refundId], references: [id])
+  payout      Payout?      @relation(fields: [payoutId], references: [id])
 
   @@index([sellerId, createdAt])
   @@index([type, createdAt])
   @@index([sellerOrderId])
   @@index([refundId])
+  @@index([payoutId])
+  @@index([sellerId, payoutId])
   @@map("ledger_entries")
+}
+
+model Payout {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  sellerId    String   @map("seller_id") @db.Uuid
+  amountMinor BigInt   @map("amount_minor")
+  providerRef String   @map("provider_ref")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  seller  Seller        @relation(fields: [sellerId], references: [id])
+  entries LedgerEntry[]
+
+  @@index([sellerId, createdAt])
+  @@index([createdAt])
+  @@map("payouts")
 }
 
 model Review {
