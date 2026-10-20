@@ -78,6 +78,13 @@ export class OrdersRepository extends PrismaRepository {
     return orderId;
   }
 
+  sellerOrderRef(sellerOrderId: string, tx: Transaction) {
+    return tx.sellerOrder.findUniqueOrThrow({
+      where: { id: sellerOrderId },
+      select: { orderId: true, sellerId: true },
+    });
+  }
+
   sellerOrderState(sellerOrderId: string, tx: Transaction) {
     return tx.sellerOrder.findUniqueOrThrow({
       where: { id: sellerOrderId },

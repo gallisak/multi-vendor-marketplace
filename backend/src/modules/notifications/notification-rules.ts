@@ -22,6 +22,30 @@ export function notificationsFor(event: PublishedEvent): NotificationDraft[] {
       const seller = { userId: p.sellerUserId, type: event.type, payload };
       return p.winnerId ? [seller, { userId: p.winnerId, type: 'auction.won', payload }] : [seller];
     }
+    case 'dispute.opened': {
+      const p = (event as PublishedEvent<'dispute.opened'>).payload;
+      return [
+        {
+          userId: p.sellerUserId,
+          type: event.type,
+          payload: { disputeId: p.disputeId, sellerOrderId: p.sellerOrderId, orderId: p.orderId },
+        },
+      ];
+    }
+    case 'dispute.resolved': {
+      const p = (event as PublishedEvent<'dispute.resolved'>).payload;
+      const payload = {
+        disputeId: p.disputeId,
+        sellerOrderId: p.sellerOrderId,
+        orderId: p.orderId,
+        status: p.status,
+        refundedMinor: p.refundedMinor,
+      };
+      return [
+        { userId: p.buyerId, type: event.type, payload },
+        { userId: p.sellerUserId, type: event.type, payload },
+      ];
+    }
     case 'auction.relisted': {
       const p = (event as PublishedEvent<'auction.relisted'>).payload;
       const payload = {

@@ -7,7 +7,8 @@ export type ProductChangeReason =
   | 'rejected'
   | 'bid_placed'
   | 'auction_closed'
-  | 'auction_relisted';
+  | 'auction_relisted'
+  | 'reviewed';
 
 export interface DomainEventPayloads {
   'product.changed': { productId: string; reason: ProductChangeReason };
@@ -67,6 +68,22 @@ export interface DomainEventPayloads {
     previousWinnerId: string | null;
     endsAt: string;
     reason: 'checkout_expired' | 'order_cancelled';
+  };
+  'dispute.opened': {
+    disputeId: string;
+    sellerOrderId: string;
+    orderId: string;
+    buyerId: string;
+    sellerUserId: string;
+  };
+  'dispute.resolved': {
+    disputeId: string;
+    sellerOrderId: string;
+    orderId: string;
+    buyerId: string;
+    sellerUserId: string;
+    status: string;
+    refundedMinor: string;
   };
   'payment.refund_requested': {
     orderId: string;
@@ -199,6 +216,24 @@ export const auctionRelisted = (
   type: 'auction.relisted',
   aggregateType: 'auction',
   aggregateId: payload.auctionId,
+  payload,
+});
+
+export const disputeOpened = (
+  payload: DomainEventPayloads['dispute.opened'],
+): NewDomainEvent<'dispute.opened'> => ({
+  type: 'dispute.opened',
+  aggregateType: 'dispute',
+  aggregateId: payload.disputeId,
+  payload,
+});
+
+export const disputeResolved = (
+  payload: DomainEventPayloads['dispute.resolved'],
+): NewDomainEvent<'dispute.resolved'> => ({
+  type: 'dispute.resolved',
+  aggregateType: 'dispute',
+  aggregateId: payload.disputeId,
   payload,
 });
 

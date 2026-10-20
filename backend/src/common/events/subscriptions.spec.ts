@@ -22,6 +22,7 @@ describe('event subscriptions', () => {
       'notifications',
       'payments',
       'realtime',
+      'analytics',
     ]);
   });
 
@@ -37,7 +38,13 @@ describe('event subscriptions', () => {
 
   it('pushes live auction and order changes to WebSocket clients', () => {
     expect(subscribersOf('auction.bid_placed')).toEqual(['notifications', 'realtime']);
-    expect(subscribersOf('order.payment_captured')).toEqual(['realtime']);
+    expect(subscribersOf('order.payment_captured')).toEqual(['realtime', 'analytics']);
+  });
+
+  it('feeds the sales read model from payments and refunds', () => {
+    expect(subscribersOf('order.payment_captured')).toContain('analytics');
+    expect(subscribersOf('payment.refund_requested')).toContain('analytics');
+    expect(subscribersOf('order.placed')).not.toContain('analytics');
   });
 
   it('builds BullMQ-safe queue names', () => {

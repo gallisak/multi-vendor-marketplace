@@ -121,12 +121,26 @@ export async function cleanupE2eData(prisma: PrismaService) {
   const e2eUsers = { email: { endsWith: E2E_EMAIL_DOMAIN } };
   await prisma.ledgerEntry.deleteMany({ where: { seller: { user: e2eUsers } } });
   await prisma.payout.deleteMany({ where: { seller: { user: e2eUsers } } });
+  await prisma.review.deleteMany({
+    where: { OR: [{ author: e2eUsers }, { product: { seller: { user: e2eUsers } } }] },
+  });
   await prisma.order.deleteMany({
     where: {
       OR: [{ buyer: e2eUsers }, { sellerOrders: { some: { seller: { user: e2eUsers } } } }],
     },
   });
-  await prisma.product.deleteMany({ where: { seller: { user: e2eUsers } } });
+  for (let attempt = 1; ; attempt++) {
+    await prisma.salesDaily.deleteMany({ where: { seller: { user: e2eUsers } } });
+    try {
+      await prisma.product.deleteMany({ where: { seller: { user: e2eUsers } } });
+      break;
+    } catch (error) {
+      if (attempt === 5) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  }
   await prisma.seller.deleteMany({ where: { user: e2eUsers } });
   await prisma.sellerApplication.deleteMany({ where: { user: e2eUsers } });
   let deleted: number;

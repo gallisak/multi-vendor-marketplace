@@ -1,6 +1,12 @@
 import type { DomainEventType } from './domain-events.js';
 
-export const CONSUMERS = ['search-sync', 'notifications', 'payments', 'realtime'] as const;
+export const CONSUMERS = [
+  'search-sync',
+  'notifications',
+  'payments',
+  'realtime',
+  'analytics',
+] as const;
 export type Consumer = (typeof CONSUMERS)[number];
 
 export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
@@ -15,6 +21,8 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
     'auction.bid_placed',
     'auction.closed',
     'auction.relisted',
+    'dispute.opened',
+    'dispute.resolved',
   ],
   payments: ['order.placed', 'payment.refund_requested'],
   realtime: [
@@ -29,6 +37,7 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
     'seller-order.status_changed',
     'payment.refund_requested',
   ],
+  analytics: ['order.payment_captured', 'payment.refund_requested'],
 };
 
 export const queueName = (consumer: Consumer) => `events.${consumer}`;

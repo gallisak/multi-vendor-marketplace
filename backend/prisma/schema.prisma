@@ -116,6 +116,7 @@ model User {
   resolvedDisputes     Dispute[]           @relation("resolvedBy")
   notifications        Notification[]
   idempotencyKeys      IdempotencyKey[]
+  cartActivity         CartActivity[]
 
   @@map("users")
 }
@@ -551,4 +552,15 @@ model SalesDaily {
   @@index([sellerId, day])
   @@index([productId, day])
   @@map("sales_daily")
+}
+
+model CartActivity {
+  day    DateTime @db.Date
+  userId String   @map("user_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([day, userId])
+  @@index([userId])
+  @@map("cart_activity")
 }

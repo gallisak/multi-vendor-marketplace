@@ -130,12 +130,38 @@ describe('Seller payouts (e2e)', () => {
     }, WAIT);
   });
 
+  it('waits for an open dispute to be decided', async () => {
+    const buyer = await createActor(app, prisma, Role.CUSTOMER);
+    const order = await deliveredOrder(buyer, 10_000);
+    const dispute = await http()
+      .post(`/api/orders/${order.orderId}/seller-orders/${order.sellerOrderId}/disputes`)
+      .set(bearer(buyer.token))
+      .send({ reason: 'The parcel was empty when it arrived' })
+      .expect(201);
+    await pastHold(order.sellerOrderId);
+
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect((await payouts()).body.total).toBe(1);
+
+    await http()
+      .post(`/api/admin/disputes/${dispute.body.id}/resolve`)
+      .set(bearer(admin.token))
+      .send({ decision: 'SELLER', note: 'Delivery photo shows the item' })
+      .expect(200);
+
+    await vi.waitFor(async () => {
+      const paid = await payouts();
+      expect(paid.body).toMatchObject({ total: 2, paidOutMinor: 27_000, pendingMinor: 0 });
+      expect(paid.body.items[0].amountMinor).toBe(9_000);
+    }, WAIT);
+  });
+
   it('nets a refund made after the payout against the next payout', async () => {
     const buyer = await createActor(app, prisma, Role.CUSTOMER);
     const first = await deliveredOrder(buyer, 10_000);
     await pastHold(first.sellerOrderId);
     await vi.waitFor(async () => {
-      expect((await payouts()).body.paidOutMinor).toBe(27_000);
+      expect((await payouts()).body.paidOutMinor).toBe(36_000);
     }, WAIT);
 
     await http()
@@ -145,13 +171,13 @@ describe('Seller payouts (e2e)', () => {
       .send({ orderItemId: first.itemId, quantity: 1 })
       .expect(201);
     await new Promise((resolve) => setTimeout(resolve, 800));
-    expect((await payouts()).body).toMatchObject({ pendingMinor: -9_000, total: 2 });
+    expect((await payouts()).body).toMatchObject({ pendingMinor: -9_000, total: 3 });
 
     const second = await deliveredOrder(buyer, 30_000);
     await pastHold(second.sellerOrderId);
     await vi.waitFor(async () => {
       const paid = await payouts();
-      expect(paid.body).toMatchObject({ total: 3, pendingMinor: 0, paidOutMinor: 45_000 });
+      expect(paid.body).toMatchObject({ total: 4, pendingMinor: 0, paidOutMinor: 54_000 });
       expect(paid.body.items[0].amountMinor).toBe(18_000);
     }, WAIT);
   });
@@ -166,7 +192,7 @@ describe('Seller payouts (e2e)', () => {
       .get(`/api/admin/payouts?sellerId=${seller.sellerId}`)
       .set(bearer(admin.token))
       .expect(200);
-    expect(all.body.total).toBe(3);
+    expect(all.body.total).toBe(4);
     expect(all.body.items.every((p: { sellerId: string }) => p.sellerId === seller.sellerId)).toBe(
       true,
     );
@@ -175,5 +201,12 @@ describe('Seller payouts (e2e)', () => {
     expect(own.body).toMatchObject({ total: 0, pendingMinor: 0, paidOutMinor: 0 });
     await http().get('/api/seller/payouts').set(bearer(customer.token)).expect(403);
     await http().get('/api/admin/payouts').set(bearer(seller.token)).expect(403);
+  });
+
+  it('keeps revenue reports independent of payouts', async () => {
+    const res = await http().get('/api/seller/dashboard').set(bearer(seller.token)).expect(200);
+
+    expect(res.body.revenue.allTime).toMatchObject({ payoutMinor: 54_000 });
+    expect(res.body.payouts).toEqual({ pendingMinor: 0, paidOutMinor: 54_000 });
   });
 });

@@ -13,6 +13,6 @@ import { SellerOrdersService } from './seller-orders.service.js';
   imports: [OrdersCoreModule, SellersModule, CartModule],
   controllers: [OrdersController, SellerOrdersController],
   providers: [CheckoutService, OrdersService, SellerOrdersService, RefundsService],
-  exports: [CheckoutService, OrdersCoreModule],
+  exports: [CheckoutService, RefundsService, OrdersCoreModule],
 })
 export class OrdersModule {}

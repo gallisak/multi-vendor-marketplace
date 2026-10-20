@@ -70,18 +70,34 @@ export class RefundsService {
     sellerOrderId: string,
     dto: CreateRefundDto,
   ): Promise<SellerOrderDto> {
-    const owned = await this.orders.findOwnedSellerOrder(sellerOrderId, sellerId, tx);
-    if (!owned) {
+    if (!(await this.orders.findOwnedSellerOrder(sellerOrderId, sellerId, tx))) {
       throw new NotFoundException('Seller order not found');
     }
-    await this.lifecycle.lockOrder(tx, owned.orderId);
+    await this.refundItem(tx, { ...dto, sellerOrderId, actorId: userId });
+    return toSellerOrderDto(await this.orders.getSellerOrder(sellerOrderId, tx));
+  }
+
+  async refundItem(
+    tx: Transaction,
+    request: {
+      sellerOrderId: string;
+      orderItemId: string;
+      quantity: number;
+      reason?: string;
+      restock?: boolean;
+      actorId: string;
+    },
+  ): Promise<bigint> {
+    const { sellerOrderId, orderItemId, quantity, reason, restock, actorId } = request;
+    const { orderId, sellerId } = await this.orders.sellerOrderRef(sellerOrderId, tx);
+    await this.lifecycle.lockOrder(tx, orderId);
 
     const sellerOrder = await this.orders.sellerOrderForSettlement(sellerOrderId, tx);
     if (sellerOrder.status === SellerOrderStatus.CANCELLED) {
       throw new ConflictException('A cancelled seller order cannot be refunded');
     }
     assertPaid(sellerOrder.order.paymentStatus);
-    const item = sellerOrder.items.find((candidate) => candidate.id === dto.orderItemId);
+    const item = sellerOrder.items.find((candidate) => candidate.id === orderItemId);
     if (!item) {
       throw new NotFoundException('Order item not found in this seller order');
     }
@@ -94,7 +110,7 @@ export class RefundsService {
           ...sellerOrder,
           reversedCommissionMinor: reversedCommission(sellerOrder.refunds),
         },
-        dto.quantity,
+        quantity,
       );
     } catch (error) {
       if (error instanceof RangeError) {
@@ -103,7 +119,7 @@ export class RefundsService {
       throw error;
     }
 
-    if (!(await this.orders.refundItem(item, dto.quantity, tx))) {
+    if (!(await this.orders.refundItem(item, quantity, tx))) {
       throw new ConflictException('The order item was refunded concurrently, reload and retry');
     }
     await this.orders.addRefunded(sellerOrderId, calculation.amountMinor, tx);
@@ -112,11 +128,11 @@ export class RefundsService {
       {
         sellerOrderId,
         orderItemId: item.id,
-        quantity: dto.quantity,
+        quantity,
         amountMinor: calculation.amountMinor,
         commissionReversalMinor: calculation.commissionReversalMinor,
-        reason: dto.reason,
-        createdById: userId,
+        reason,
+        createdById: actorId,
       },
       tx,
     );
@@ -131,17 +147,17 @@ export class RefundsService {
       tx,
     );
 
-    if (NOT_SHIPPED.includes(sellerOrder.status) || dto.restock === true) {
-      await this.inventory.restock(item.productId, dto.quantity, tx);
+    if (NOT_SHIPPED.includes(sellerOrder.status) || restock === true) {
+      await this.inventory.restock(item.productId, quantity, tx);
       await this.outbox.add(tx, productChanged(item.productId, 'stock_changed'));
     }
 
     await this.lifecycle.refundBuyer(tx, {
-      orderId: owned.orderId,
+      orderId,
       sellerOrderId,
       refundId: refund.id,
       amountMinor: calculation.amountMinor,
-      reason: dto.reason ?? 'refund',
+      reason: reason ?? 'refund',
     });
 
     const fullyRefunded =
@@ -160,10 +176,10 @@ export class RefundsService {
         refundId: refund.id,
         sellerOrderId,
         amountMinor: calculation.amountMinor.toString(),
-        quantity: dto.quantity,
+        quantity,
       },
       'Refund issued',
     );
-    return toSellerOrderDto(await this.orders.getSellerOrder(sellerOrderId, tx));
+    return calculation.amountMinor;
   }
 }

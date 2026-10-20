@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { startOfUtcDay } from '../analytics/analytics.rules.js';
 import { lineTotal } from '../orders/pricing.js';
 import type { CartDto, CartLineDto, CartSellerGroupDto } from './cart.dto.js';
 import { CartRepository } from './cart.repository.js';
@@ -77,6 +78,7 @@ export class CartService {
     }
 
     await this.cart.setItem(userId, productId, quantity);
+    await this.cart.recordActivity(userId, startOfUtcDay(new Date()));
     return this.view(userId);
   }
 

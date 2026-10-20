@@ -28,6 +28,8 @@ export class LedgerRepository extends PrismaRepository {
       FROM ledger_entries l
       JOIN seller_orders so ON so.id = l.seller_order_id
       WHERE l.payout_id IS NULL AND so.status = 'COMPLETED' AND so.completed_at <= ${cutoff}
+        AND NOT EXISTS (
+          SELECT 1 FROM disputes d WHERE d.seller_order_id = so.id AND d.status = 'OPEN')
       GROUP BY l.seller_id
       HAVING SUM(l.amount_minor) > 0`;
     return rows.map((row) => row.sellerId);
@@ -47,6 +49,8 @@ export class LedgerRepository extends PrismaRepository {
       JOIN seller_orders so ON so.id = l.seller_order_id
       WHERE l.seller_id = ${sellerId}::uuid AND l.payout_id IS NULL
         AND so.status = 'COMPLETED' AND so.completed_at <= ${cutoff}
+        AND NOT EXISTS (
+          SELECT 1 FROM disputes d WHERE d.seller_order_id = so.id AND d.status = 'OPEN')
       ORDER BY l.id
       FOR UPDATE OF l`;
   }

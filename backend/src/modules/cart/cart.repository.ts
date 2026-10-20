@@ -51,6 +51,13 @@ export class CartRepository extends PrismaRepository {
     });
   }
 
+  async recordActivity(userId: string, day: Date) {
+    await this.prisma.cartActivity.createMany({
+      data: [{ day, userId }],
+      skipDuplicates: true,
+    });
+  }
+
   async removeItem(userId: string, productId: string) {
     await this.prisma.cartItem.deleteMany({ where: { productId, cart: { userId } } });
   }
