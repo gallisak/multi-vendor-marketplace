@@ -3,11 +3,17 @@ import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule, type ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Env } from '../config/env.schema.js';
-import { isLoginRequest, loginEmailTracker, type TrackedRequest } from './login-throttle.js';
+import {
+  isBidRequest,
+  isLoginRequest,
+  loginEmailTracker,
+  type TrackedRequest,
+} from './login-throttle.js';
 import { RedisThrottlerStorage } from './redis-throttler.storage.js';
 
 const MINUTE = 60_000;
 const notLogin = (context: Parameters<typeof isLoginRequest>[0]) => !isLoginRequest(context);
+const notBid = (context: Parameters<typeof isBidRequest>[0]) => !isBidRequest(context);
 
 @Module({
   providers: [RedisThrottlerStorage],
@@ -44,6 +50,12 @@ class ThrottlerStorageModule {}
             limit: config.get('LOGIN_IP_RATE_LIMIT_PER_MINUTE', { infer: true }),
             blockDuration: MINUTE,
             skipIf: notLogin,
+          },
+          {
+            name: 'bid-ip',
+            ttl: MINUTE,
+            limit: config.get('BID_RATE_LIMIT_PER_MINUTE', { infer: true }),
+            skipIf: notBid,
           },
         ],
         storage,

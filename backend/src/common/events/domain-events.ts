@@ -1,5 +1,13 @@
 export type ProductChangeReason =
-  'created' | 'updated' | 'stock_changed' | 'archived' | 'approved' | 'rejected';
+  | 'created'
+  | 'updated'
+  | 'stock_changed'
+  | 'archived'
+  | 'approved'
+  | 'rejected'
+  | 'bid_placed'
+  | 'auction_closed'
+  | 'auction_relisted';
 
 export interface DomainEventPayloads {
   'product.changed': { productId: string; reason: ProductChangeReason };
@@ -30,6 +38,35 @@ export interface DomainEventPayloads {
     to: string;
     orderStatus: string;
     reason: string | null;
+  };
+  'auction.bid_placed': {
+    auctionId: string;
+    productId: string;
+    bidderId: string;
+    previousLeaderId: string | null;
+    amountMinor: number;
+    bidCount: number;
+    minNextBidMinor: number;
+    endsAt: string;
+  };
+  'auction.closed': {
+    auctionId: string;
+    productId: string;
+    title: string;
+    sellerUserId: string;
+    outcome: 'won' | 'unsold';
+    winnerId: string | null;
+    amountMinor: number | null;
+    checkoutDeadline: string | null;
+  };
+  'auction.relisted': {
+    auctionId: string;
+    productId: string;
+    title: string;
+    sellerUserId: string;
+    previousWinnerId: string | null;
+    endsAt: string;
+    reason: 'checkout_expired' | 'order_cancelled';
   };
   'payment.refund_requested': {
     orderId: string;
@@ -135,6 +172,33 @@ export const refundRequested = (
   type: 'payment.refund_requested',
   aggregateType: 'order',
   aggregateId: payload.orderId,
+  payload,
+});
+
+export const bidPlaced = (
+  payload: DomainEventPayloads['auction.bid_placed'],
+): NewDomainEvent<'auction.bid_placed'> => ({
+  type: 'auction.bid_placed',
+  aggregateType: 'auction',
+  aggregateId: payload.auctionId,
+  payload,
+});
+
+export const auctionClosed = (
+  payload: DomainEventPayloads['auction.closed'],
+): NewDomainEvent<'auction.closed'> => ({
+  type: 'auction.closed',
+  aggregateType: 'auction',
+  aggregateId: payload.auctionId,
+  payload,
+});
+
+export const auctionRelisted = (
+  payload: DomainEventPayloads['auction.relisted'],
+): NewDomainEvent<'auction.relisted'> => ({
+  type: 'auction.relisted',
+  aggregateType: 'auction',
+  aggregateId: payload.auctionId,
   payload,
 });
 

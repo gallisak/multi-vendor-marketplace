@@ -10,4 +10,6 @@ export const METRIC = {
   checkoutRejections: 'checkout_rejections_total',
   payments: 'payments_total',
   payouts: 'payouts_total',
+  bids: 'bids_total',
+  auctionsClosed: 'auctions_closed_total',
 } as const;

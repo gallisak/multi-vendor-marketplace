@@ -5,12 +5,13 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter } from 'prom-client';
 import { orderPlaced, productChanged } from '../../common/events/domain-events.js';
-import { IdempotencyScope } from '../../generated/prisma/enums.js';
+import { AuctionStatus, IdempotencyScope } from '../../generated/prisma/enums.js';
 import type { Env } from '../../infra/config/env.schema.js';
 import {
   IdempotencyService,
@@ -19,6 +20,7 @@ import {
 import { METRIC } from '../../infra/metrics/metric-names.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import type { Transaction } from '../../infra/prisma/unit-of-work.js';
+import { AuctionsRepository } from '../auctions/auctions.repository.js';
 import { CartRepository } from '../cart/cart.repository.js';
 import { unavailableReason } from '../cart/cart.rules.js';
 import { LedgerService } from '../ledger/ledger.service.js';
@@ -26,7 +28,7 @@ import { InventoryRepository } from './inventory.repository.js';
 import { toOrderDto } from './order.mapper.js';
 import { OrdersRepository } from './orders.repository.js';
 import type { CheckoutDto, OrderDto } from './orders.dto.js';
-import { percentToBps, type PricedLine, splitBySeller } from './pricing.js';
+import { type OrderDraft, percentToBps, type PricedLine, splitBySeller } from './pricing.js';
 
 export class CheckoutRejected extends ConflictException {
   constructor(
@@ -47,6 +49,7 @@ export class CheckoutService {
     private readonly orders: OrdersRepository,
     private readonly inventory: InventoryRepository,
     private readonly cart: CartRepository,
+    private readonly auctions: AuctionsRepository,
     private readonly ledger: LedgerService,
     private readonly outbox: OutboxService,
     config: ConfigService<Env, true>,
@@ -58,18 +61,36 @@ export class CheckoutService {
     );
   }
 
-  async checkout(
+  checkout(
     buyerId: string,
     idempotencyKey: string,
     dto: CheckoutDto,
   ): Promise<IdempotentResult<OrderDto>> {
+    return this.runCheckout(buyerId, idempotencyKey, dto, (tx) =>
+      this.placeOrder(tx, buyerId, dto),
+    );
+  }
+
+  checkoutAuction(
+    buyerId: string,
+    idempotencyKey: string,
+    productId: string,
+  ): Promise<IdempotentResult<OrderDto>> {
+    return this.runCheckout(buyerId, idempotencyKey, { auctionProductId: productId }, (tx) =>
+      this.placeAuctionOrder(tx, buyerId, productId),
+    );
+  }
+
+  private async runCheckout(
+    buyerId: string,
+    idempotencyKey: string,
+    payload: unknown,
+    work: (tx: Transaction) => Promise<OrderDto>,
+  ): Promise<IdempotentResult<OrderDto>> {
     try {
       const result = await this.idempotency.run(
-        { userId: buyerId, scope: IdempotencyScope.CHECKOUT, key: idempotencyKey, payload: dto },
-        async (tx) => ({
-          status: HttpStatus.CREATED,
-          body: await this.placeOrder(tx, buyerId, dto),
-        }),
+        { userId: buyerId, scope: IdempotencyScope.CHECKOUT, key: idempotencyKey, payload },
+        async (tx) => ({ status: HttpStatus.CREATED, body: await work(tx) }),
       );
       if (!result.replayed) {
         this.placed.inc();
@@ -131,13 +152,55 @@ export class CheckoutService {
       );
     }
 
-    const order = await this.orders.create(buyerId, draft, tx);
-    await this.ledger.recordSales(order.sellerOrders, tx);
-
+    const order = await this.createOrder(tx, buyerId, draft);
     await this.cart.removeItems(
       items.map((item) => item.id),
       tx,
     );
+    return toOrderDto(order);
+  }
+
+  private async placeAuctionOrder(
+    tx: Transaction,
+    buyerId: string,
+    productId: string,
+  ): Promise<OrderDto> {
+    const auction = await this.auctions.lockForCheckout(productId, tx);
+    if (!auction || auction.winnerId !== buyerId) {
+      throw new NotFoundException('No won auction for this product');
+    }
+    if (auction.status !== AuctionStatus.AWAITING_CHECKOUT) {
+      throw new CheckoutRejected('auction_not_awaiting', 'This auction is not awaiting checkout');
+    }
+    if (!auction.windowOpen) {
+      throw new CheckoutRejected('auction_window_expired', 'The checkout window has expired');
+    }
+
+    const reserved = await this.inventory.reserveLot(productId, tx);
+    if (!reserved) {
+      throw new CheckoutRejected('stock_conflict', 'The lot is no longer available');
+    }
+
+    const draft = splitBySeller(
+      [
+        {
+          productId,
+          sellerId: reserved.sellerId,
+          title: reserved.title,
+          unitPriceMinor: auction.currentPriceMinor!,
+          quantity: 1,
+        },
+      ],
+      this.commissionRateBps,
+    );
+    const order = await this.createOrder(tx, buyerId, draft);
+    await this.auctions.setStatus(auction.id, AuctionStatus.SOLD, tx);
+    return toOrderDto(order);
+  }
+
+  private async createOrder(tx: Transaction, buyerId: string, draft: OrderDraft) {
+    const order = await this.orders.create(buyerId, draft, tx);
+    await this.ledger.recordSales(order.sellerOrders, tx);
 
     await this.outbox.add(
       tx,
@@ -150,9 +213,11 @@ export class CheckoutService {
           sellerId: so.sellerId,
         })),
       }),
-      ...lines.map((line) => productChanged(line.productId, 'stock_changed')),
+      ...draft.sellerOrders.flatMap((sellerOrder) =>
+        sellerOrder.lines.map((line) => productChanged(line.productId, 'stock_changed')),
+      ),
     );
 
-    return toOrderDto(order);
+    return order;
   }
 }

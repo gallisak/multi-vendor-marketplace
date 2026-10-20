@@ -6,8 +6,8 @@ import { toProductDto } from './product.mapper.js';
 import type { CatalogQueryDto, ProductDto, SimilarProductsQueryDto } from './products.dto.js';
 import { ProductsRepository } from './products.repository.js';
 
-export const LISTED_STATUSES = [ProductStatus.ACTIVE];
-export const VIEWABLE_STATUSES = [ProductStatus.ACTIVE, ProductStatus.SOLD_OUT];
+export const LISTED_STATUSES: ProductStatus[] = [ProductStatus.ACTIVE];
+export const VIEWABLE_STATUSES: ProductStatus[] = [ProductStatus.ACTIVE, ProductStatus.SOLD_OUT];
 
 @Injectable()
 export class CatalogService {

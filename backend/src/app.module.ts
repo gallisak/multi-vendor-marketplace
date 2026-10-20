@@ -4,6 +4,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { CoreModule } from './infra/core.module.js';
 import { HealthModule } from './infra/health/health.module.js';
 import { ThrottlingModule } from './infra/throttling/throttling.module.js';
+import { AuctionsModule } from './modules/auctions/auctions.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { CategoriesModule } from './modules/categories/categories.module.js';
@@ -30,6 +31,7 @@ import { UsersModule } from './modules/users/users.module.js';
     CartModule,
     LedgerModule,
     OrdersModule,
+    AuctionsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })

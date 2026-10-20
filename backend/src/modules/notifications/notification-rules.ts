@@ -8,6 +8,40 @@ export interface NotificationDraft {
   payload: Record<string, string | null>;
 }
 
+export function notificationsFor(event: PublishedEvent): NotificationDraft[] {
+  switch (event.type) {
+    case 'auction.closed': {
+      const p = (event as PublishedEvent<'auction.closed'>).payload;
+      const payload = {
+        productId: p.productId,
+        title: p.title,
+        outcome: p.outcome,
+        amountMinor: p.amountMinor === null ? null : String(p.amountMinor),
+        checkoutDeadline: p.checkoutDeadline,
+      };
+      const seller = { userId: p.sellerUserId, type: event.type, payload };
+      return p.winnerId ? [seller, { userId: p.winnerId, type: 'auction.won', payload }] : [seller];
+    }
+    case 'auction.relisted': {
+      const p = (event as PublishedEvent<'auction.relisted'>).payload;
+      const payload = {
+        productId: p.productId,
+        title: p.title,
+        endsAt: p.endsAt,
+        reason: p.reason,
+      };
+      const seller = { userId: p.sellerUserId, type: event.type, payload };
+      return p.reason === 'checkout_expired' && p.previousWinnerId
+        ? [seller, { userId: p.previousWinnerId, type: 'auction.checkout_expired', payload }]
+        : [seller];
+    }
+    default: {
+      const single = notificationFor(event);
+      return single ? [single] : [];
+    }
+  }
+}
+
 export function notificationFor(event: PublishedEvent): NotificationDraft | null {
   switch (event.type) {
     case 'payout.paid': {
@@ -69,6 +103,21 @@ export function notificationFor(event: PublishedEvent): NotificationDraft | null
           sellerOrderId: p.sellerOrderId,
           amountMinor: p.amountMinor,
           reason: p.reason,
+        },
+      };
+    }
+    case 'auction.bid_placed': {
+      const p = (event as PublishedEvent<'auction.bid_placed'>).payload;
+      if (!p.previousLeaderId || p.previousLeaderId === p.bidderId) {
+        return null;
+      }
+      return {
+        userId: p.previousLeaderId,
+        type: 'auction.outbid',
+        payload: {
+          productId: p.productId,
+          amountMinor: String(p.amountMinor),
+          minNextBidMinor: String(p.minNextBidMinor),
         },
       };
     }

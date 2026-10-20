@@ -1,6 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
-import { clientIp, isLoginRequest, loginEmailTracker } from './login-throttle.js';
+import { clientIp, isBidRequest, isLoginRequest, loginEmailTracker } from './login-throttle.js';
 
 const req = (body?: unknown, ip = '10.0.0.1', ips: string[] = []) =>
   ({ body, ip, ips }) as Pick<Request, 'ip' | 'ips' | 'body'>;
@@ -32,5 +32,14 @@ describe('login throttling', () => {
 
   it('ignores non-http contexts', () => {
     expect(isLoginRequest({ getType: () => 'ws' } as unknown as ExecutionContext)).toBe(false);
+  });
+});
+
+describe('bid throttling', () => {
+  it('recognizes only POST to an auction bids endpoint', () => {
+    expect(isBidRequest(httpContext('POST', '/api/auctions/abc/bids'))).toBe(true);
+    expect(isBidRequest(httpContext('GET', '/api/auctions/abc/bids'))).toBe(false);
+    expect(isBidRequest(httpContext('POST', '/api/auctions/abc/checkout'))).toBe(false);
+    expect(isBidRequest(httpContext('POST', '/api/auctions/abc/bids/extra'))).toBe(false);
   });
 });

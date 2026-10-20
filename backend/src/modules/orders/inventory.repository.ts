@@ -22,6 +22,15 @@ export class InventoryRepository extends PrismaRepository {
     return reserved;
   }
 
+  async reserveLot(productId: string, tx: Transaction) {
+    const [reserved] = await tx.$queryRaw<ReservedProduct[]>`
+      UPDATE products
+      SET stock = stock - 1, version = version + 1, updated_at = now()
+      WHERE id = ${productId}::uuid AND type = 'AUCTION' AND stock >= 1
+      RETURNING id, seller_id AS "sellerId", title, price_minor AS "priceMinor"`;
+    return reserved;
+  }
+
   async restock(productId: string, quantity: number, tx: Transaction) {
     await tx.product.update({
       where: { id: productId },

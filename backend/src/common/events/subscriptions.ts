@@ -12,6 +12,9 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
     'order.payment_failed',
     'payment.refund_requested',
     'payout.paid',
+    'auction.bid_placed',
+    'auction.closed',
+    'auction.relisted',
   ],
   payments: ['order.placed', 'payment.refund_requested'],
 };

@@ -194,4 +194,11 @@ export class ProductsRepository extends PrismaRepository {
     });
     return count === 1;
   }
+
+  async startAuctionWindowNow(productId: string, tx: Transaction) {
+    await tx.$executeRaw`
+      UPDATE auctions SET starts_at = now(), updated_at = now()
+      WHERE product_id = ${productId}::uuid AND status = 'ACTIVE' AND bid_count = 0
+        AND starts_at < now()`;
+  }
 }

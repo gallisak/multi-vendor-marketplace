@@ -59,6 +59,16 @@ const providers = [
     help: 'Mock transfers paid out to sellers',
   }),
   makeCounterProvider({
+    name: METRIC.bids,
+    help: 'Bids by outcome',
+    labelNames: ['result'],
+  }),
+  makeCounterProvider({
+    name: METRIC.auctionsClosed,
+    help: 'Auctions closed or relisted by the sweeper',
+    labelNames: ['outcome'],
+  }),
+  makeCounterProvider({
     name: METRIC.searchFallbacks,
     help: 'Search requests served from the database fallback',
     labelNames: ['reason'],

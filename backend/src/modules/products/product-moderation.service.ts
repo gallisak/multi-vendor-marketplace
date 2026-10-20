@@ -59,6 +59,9 @@ export class ProductModerationService {
       if (!(await this.products.moderate(productId, status, note, tx))) {
         throw new ConflictException('Product is not awaiting moderation');
       }
+      if (status === ProductStatus.ACTIVE) {
+        await this.products.startAuctionWindowNow(productId, tx);
+      }
       await this.outbox.add(
         tx,
         productChanged(productId, status === ProductStatus.ACTIVE ? 'approved' : 'rejected'),

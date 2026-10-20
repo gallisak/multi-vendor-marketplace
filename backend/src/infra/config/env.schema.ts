@@ -45,6 +45,9 @@ export const envSchema = z
     PAYMENT_MOCK_DECLINE_ABOVE_MINOR: z.coerce.number().int().positive().default(50_000_000),
     PAYOUT_HOLD: duration('7d'),
     PAYOUT_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+    AUCTION_CHECKOUT_WINDOW: duration('24h'),
+    AUCTION_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+    BID_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') {

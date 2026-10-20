@@ -7,6 +7,8 @@ import {
 import { type OrderStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import type { Transaction } from '../../infra/prisma/unit-of-work.js';
+import { AuctionRelistService } from '../auctions/auction-relist.service.js';
+import { AuctionsRepository } from '../auctions/auctions.repository.js';
 import { openCommission } from '../ledger/ledger.rules.js';
 import { LedgerService } from '../ledger/ledger.service.js';
 import { InventoryRepository } from './inventory.repository.js';
@@ -30,6 +32,8 @@ export class OrderLifecycleService {
     private readonly orders: OrdersRepository,
     private readonly inventory: InventoryRepository,
     private readonly ledger: LedgerService,
+    private readonly auctions: AuctionsRepository,
+    private readonly relisting: AuctionRelistService,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -97,9 +101,18 @@ export class OrderLifecycleService {
     );
 
     const sellerOrder = await this.orders.sellerOrderForSettlement(sellerOrderId, tx);
+    const soldLots = await this.auctions.findSoldLots(
+      sellerOrder.items.map((item) => item.productId),
+      tx,
+    );
+    for (const lot of soldLots) {
+      await this.relisting.relist(lot.id, 'order_cancelled', tx);
+    }
+    const relistedProducts = new Set(soldLots.map((lot) => lot.productId));
+
     for (const item of sellerOrder.items) {
       const quantity = item.quantity - item.refundedQuantity;
-      if (quantity > 0) {
+      if (quantity > 0 && !relistedProducts.has(item.productId)) {
         await this.inventory.restock(item.productId, quantity, tx);
       }
     }

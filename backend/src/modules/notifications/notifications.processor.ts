@@ -7,7 +7,7 @@ import { queueName } from '../../common/events/subscriptions.js';
 import { METRIC } from '../../infra/metrics/metric-names.js';
 import { IdempotentConsumerService } from '../../infra/outbox/idempotent-consumer.service.js';
 import { DomainEventProcessor } from '../../infra/queue/domain-event.processor.js';
-import { notificationFor } from './notification-rules.js';
+import { notificationsFor } from './notification-rules.js';
 import { NotificationsRepository } from './notifications.repository.js';
 
 @Processor(queueName('notifications'), { concurrency: 5 })
@@ -24,13 +24,13 @@ export class NotificationsProcessor extends DomainEventProcessor {
   }
 
   async handle(event: PublishedEvent) {
-    const draft = notificationFor(event);
-    if (!draft) {
+    const drafts = notificationsFor(event);
+    if (drafts.length === 0) {
       return;
     }
 
     const applied = await this.idempotent.runOnce(this.consumer, event.id, (tx) =>
-      this.notifications.createMany([draft], tx),
+      this.notifications.createMany(drafts, tx),
     );
     if (!applied) {
       this.logger.log({ eventId: event.id }, 'Duplicate event skipped');

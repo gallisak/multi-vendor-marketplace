@@ -20,3 +20,13 @@ export function loginEmailTracker(req: TrackedRequest): string {
   const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
   return `${clientIp(req)}:${normalized}`;
 }
+
+const BID_PATH = /\/auctions\/[^/]+\/bids$/;
+
+export function isBidRequest(context: ExecutionContext): boolean {
+  if (context.getType() !== 'http') {
+    return false;
+  }
+  const req = context.switchToHttp().getRequest<Request>();
+  return req.method === 'POST' && BID_PATH.test(req.path);
+}

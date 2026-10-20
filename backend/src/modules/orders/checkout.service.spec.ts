@@ -5,6 +5,7 @@ import type { Env } from '../../infra/config/env.schema.js';
 import type { IdempotencyService } from '../../infra/idempotency/idempotency.service.js';
 import type { OutboxService } from '../../infra/outbox/outbox.service.js';
 import type { Transaction } from '../../infra/prisma/unit-of-work.js';
+import type { AuctionsRepository } from '../auctions/auctions.repository.js';
 import type { CartRepository } from '../cart/cart.repository.js';
 import type { LedgerService } from '../ledger/ledger.service.js';
 import { CheckoutRejected, CheckoutService } from './checkout.service.js';
@@ -112,6 +113,7 @@ function setup(
     orders as unknown as OrdersRepository,
     inventory as unknown as InventoryRepository,
     cartRepository as unknown as CartRepository,
+    {} as AuctionsRepository,
     ledger as unknown as LedgerService,
     outbox as unknown as OutboxService,
     config,
