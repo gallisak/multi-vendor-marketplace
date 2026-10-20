@@ -31,6 +31,14 @@ export interface DomainEventPayloads {
     orderStatus: string;
     reason: string | null;
   };
+  'payment.refund_requested': {
+    orderId: string;
+    buyerId: string;
+    sellerOrderId: string;
+    refundId: string | null;
+    amountMinor: string;
+    reason: string;
+  };
 }
 
 export type DomainEventType = keyof DomainEventPayloads;
@@ -118,6 +126,15 @@ export const sellerOrderStatusChanged = (
   type: 'seller-order.status_changed',
   aggregateType: 'seller-order',
   aggregateId: payload.sellerOrderId,
+  payload,
+});
+
+export const refundRequested = (
+  payload: DomainEventPayloads['payment.refund_requested'],
+): NewDomainEvent<'payment.refund_requested'> => ({
+  type: 'payment.refund_requested',
+  aggregateType: 'order',
+  aggregateId: payload.orderId,
   payload,
 });
 

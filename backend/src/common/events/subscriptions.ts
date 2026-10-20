@@ -10,9 +10,10 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
     'seller-order.paid',
     'seller-order.status_changed',
     'order.payment_failed',
+    'payment.refund_requested',
     'payout.paid',
   ],
-  payments: ['order.placed'],
+  payments: ['order.placed', 'payment.refund_requested'],
 };
 
 export const queueName = (consumer: Consumer) => `events.${consumer}`;

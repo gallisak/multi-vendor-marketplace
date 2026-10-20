@@ -26,7 +26,7 @@ import { IdempotencyKey } from '../../common/idempotency-key.decorator.js';
 import { PaginationQueryDto } from '../../common/pagination.js';
 import { Role } from '../../generated/prisma/enums.js';
 import { CheckoutService } from './checkout.service.js';
-import { CheckoutDto, OrderDto } from './orders.dto.js';
+import { BuyerCancelDto, CheckoutDto, OrderDto } from './orders.dto.js';
 import { OrdersService } from './orders.service.js';
 import { sendIdempotent } from '../../infra/idempotency/idempotency.service.js';
 
@@ -74,6 +74,20 @@ export class OrdersController {
     @Param('sellerOrderId', ParseUUIDPipe) sellerOrderId: string,
   ) {
     return this.orders.confirmDelivery(user.id, orderId, sellerOrderId);
+  }
+
+  @Post(':orderId/seller-orders/:sellerOrderId/cancel')
+  @HttpCode(200)
+  @ApiOkResponse({ type: OrderDto, description: 'Only before the seller accepted the order' })
+  @ApiNotFoundResponse({ description: 'Not found or belongs to another buyer' })
+  @ApiConflictResponse({ description: 'Already accepted by the seller or payment pending' })
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Param('sellerOrderId', ParseUUIDPipe) sellerOrderId: string,
+    @Body() dto: BuyerCancelDto,
+  ) {
+    return this.orders.cancelByBuyer(user.id, orderId, sellerOrderId, dto.reason);
   }
 
   @Get(':id')

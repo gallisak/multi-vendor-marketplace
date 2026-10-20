@@ -1,5 +1,11 @@
 import { LedgerEntryType } from '../../generated/prisma/enums.js';
-import { cancellationEntries, openCommission, payoutAmount, saleEntries } from './ledger.rules.js';
+import {
+  cancellationEntries,
+  openCommission,
+  payoutAmount,
+  refundEntries,
+  saleEntries,
+} from './ledger.rules.js';
 
 const sum = (entries: { amountMinor: bigint }[]) =>
   entries.reduce((total, entry) => total + entry.amountMinor, 0n);
@@ -12,10 +18,25 @@ describe('ledger rules', () => {
     ]);
   });
 
-  it('cancels exactly what is still open so the seller order nets to zero', () => {
-    const open = openCommission({ commissionMinor: 1_000n, refunds: [] });
+  it('reverses the refunded part of the sale and its commission', () => {
+    expect(refundEntries(2_500n, 250n)).toEqual([
+      { type: LedgerEntryType.REFUND, amountMinor: -2_500n },
+      { type: LedgerEntryType.COMMISSION_REVERSAL, amountMinor: 250n },
+    ]);
+    expect(refundEntries(5n, 0n)).toEqual([{ type: LedgerEntryType.REFUND, amountMinor: -5n }]);
+  });
 
-    expect(sum([...saleEntries(10_000n, 1_000n), ...cancellationEntries(10_000n, open)])).toBe(0n);
+  it('cancels exactly what is still open so the seller order nets to zero', () => {
+    const sale = saleEntries(10_000n, 1_000n);
+    const refund = refundEntries(2_500n, 250n);
+    const open = openCommission({
+      commissionMinor: 1_000n,
+      refunds: [{ commissionReversalMinor: 250n }],
+    });
+    const cancel = cancellationEntries(7_500n, open);
+
+    expect(open).toBe(750n);
+    expect(sum([...sale, ...refund, ...cancel])).toBe(0n);
     expect(cancellationEntries(0n, 0n)).toEqual([]);
   });
 

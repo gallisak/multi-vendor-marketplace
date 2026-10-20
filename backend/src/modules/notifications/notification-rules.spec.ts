@@ -78,6 +78,21 @@ describe('notificationFor', () => {
     ).toMatchObject({ userId: 'buyer', type: 'order.payment_failed' });
   });
 
+  it('tells the buyer about a refund', () => {
+    expect(
+      notificationFor(
+        event('payment.refund_requested', {
+          orderId: 'o1',
+          buyerId: 'buyer',
+          sellerOrderId: 'so1',
+          refundId: null,
+          amountMinor: '500',
+          reason: 'cancelled',
+        }),
+      ),
+    ).toMatchObject({ userId: 'buyer', payload: { amountMinor: '500', reason: 'cancelled' } });
+  });
+
   it('ignores events nobody needs to hear about', () => {
     expect(
       notificationFor(event('product.changed', { productId: 'p1', reason: 'updated' })),

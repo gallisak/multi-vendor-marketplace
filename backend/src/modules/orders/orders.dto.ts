@@ -1,7 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
+import { MAX_LINE_QUANTITY } from '../cart/cart.rules.js';
 import { PaginationQueryDto } from '../../common/pagination.js';
 import { OrderStatus, PaymentStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
+import { trim } from '../../common/transforms.js';
 
 export class CheckoutDto {
   @ApiPropertyOptional({
@@ -65,6 +78,60 @@ export class SellerOrderDto {
   payoutMinor: number;
   @ApiPropertyOptional({ nullable: true, type: String }) cancelReason: string | null;
   @ApiProperty({ type: [OrderItemDto] }) items: OrderItemDto[];
+  @ApiProperty({ type: () => [RefundDto] }) refunds: RefundDto[];
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
+}
+
+export class CancelSellerOrderDto {
+  @ApiProperty({ example: 'Item turned out to be out of stock' })
+  @Transform(trim)
+  @IsString()
+  @Length(3, 500)
+  reason: string;
+}
+
+export class BuyerCancelDto {
+  @ApiPropertyOptional({ example: 'Changed my mind' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(3, 500)
+  reason?: string;
+}
+
+export class CreateRefundDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  orderItemId: string;
+
+  @ApiProperty({ minimum: 1, example: 1 })
+  @IsInt()
+  @Min(1)
+  @Max(MAX_LINE_QUANTITY)
+  quantity: number;
+
+  @ApiPropertyOptional({ example: 'Damaged in transit' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(3, 500)
+  reason?: string;
+
+  @ApiPropertyOptional({
+    description: 'Return units to stock; always true before the seller order is shipped',
+  })
+  @IsOptional()
+  @IsBoolean()
+  restock?: boolean;
+}
+
+export class RefundDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ format: 'uuid' }) orderItemId: string;
+  @ApiProperty() quantity: number;
+  @ApiProperty() amountMinor: number;
+  @ApiProperty() commissionReversalMinor: number;
+  @ApiPropertyOptional({ nullable: true, type: String }) reason: string | null;
+  @ApiProperty() createdAt: Date;
 }

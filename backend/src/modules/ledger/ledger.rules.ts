@@ -14,6 +14,13 @@ export function saleEntries(subtotalMinor: bigint, commissionMinor: bigint): Ent
   ];
 }
 
+export function refundEntries(amountMinor: bigint, commissionReversalMinor: bigint): EntryDraft[] {
+  return nonZero([
+    { type: LedgerEntryType.REFUND, amountMinor: -amountMinor },
+    { type: LedgerEntryType.COMMISSION_REVERSAL, amountMinor: commissionReversalMinor },
+  ]);
+}
+
 export function cancellationEntries(openSubtotalMinor: bigint, openCommissionMinor: bigint) {
   return nonZero([
     { type: LedgerEntryType.CANCELLATION, amountMinor: -openSubtotalMinor },

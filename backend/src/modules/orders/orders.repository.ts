@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { Paging } from '../../common/pagination.js';
-import type { OrderStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
+import type {
+  OrderStatus,
+  PaymentStatus,
+  SellerOrderStatus,
+} from '../../generated/prisma/enums.js';
 import { SellerOrderStatus as Status } from '../../generated/prisma/enums.js';
 import { PrismaRepository, type Transaction } from '../../infra/prisma/unit-of-work.js';
 import { ORDER_INCLUDE, SELLER_ORDER_INCLUDE } from './order.mapper.js';
@@ -120,6 +124,30 @@ export class OrdersRepository extends PrismaRepository {
     });
   }
 
+  async markFullyRefunded(sellerOrderId: string, subtotalMinor: bigint, tx: Transaction) {
+    await tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: { refundedMinor: subtotalMinor },
+    });
+  }
+
+  findWithPayment(orderId: string, tx: Transaction) {
+    return tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { payment: true } });
+  }
+
+  async applyRefund(
+    orderId: string,
+    refundedMinor: bigint,
+    paymentStatus: PaymentStatus,
+    tx: Transaction,
+  ) {
+    await tx.order.update({
+      where: { id: orderId },
+      data: { refundedMinor, paymentStatus, version: { increment: 1 } },
+    });
+    await tx.payment.update({ where: { orderId }, data: { status: paymentStatus } });
+  }
+
   findSellerOrderPage(sellerId: string, status: SellerOrderStatus | undefined, paging: Paging) {
     const where = { sellerId, ...(status && { status }) };
     return this.prisma.$transaction([
@@ -145,5 +173,39 @@ export class OrdersRepository extends PrismaRepository {
       where: { id: sellerOrderId },
       include: SELLER_ORDER_INCLUDE,
     });
+  }
+
+  async refundItem(
+    item: { id: string; refundedQuantity: number },
+    quantity: number,
+    tx: Transaction,
+  ) {
+    const { count } = await tx.orderItem.updateMany({
+      where: { id: item.id, refundedQuantity: item.refundedQuantity },
+      data: { refundedQuantity: { increment: quantity } },
+    });
+    return count === 1;
+  }
+
+  async addRefunded(sellerOrderId: string, amountMinor: bigint, tx: Transaction) {
+    await tx.sellerOrder.update({
+      where: { id: sellerOrderId },
+      data: { refundedMinor: { increment: amountMinor }, version: { increment: 1 } },
+    });
+  }
+
+  createRefund(
+    data: {
+      sellerOrderId: string;
+      orderItemId: string;
+      quantity: number;
+      amountMinor: bigint;
+      commissionReversalMinor: bigint;
+      reason?: string;
+      createdById: string;
+    },
+    tx: Transaction,
+  ) {
+    return tx.refund.create({ data });
   }
 }

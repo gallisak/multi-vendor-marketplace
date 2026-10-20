@@ -17,6 +17,10 @@ describe('event subscriptions', () => {
     expect(subscribersOf('order.placed')).toEqual(['payments']);
   });
 
+  it('sends refunds to the payment provider and tells the buyer', () => {
+    expect(subscribersOf('payment.refund_requested')).toEqual(['notifications', 'payments']);
+  });
+
   it('notifies about payment failures and seller order changes', () => {
     expect(subscribersOf('order.payment_failed')).toEqual(['notifications']);
     expect(subscribersOf('seller-order.paid')).toEqual(['notifications']);

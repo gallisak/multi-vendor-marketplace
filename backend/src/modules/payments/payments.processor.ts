@@ -21,6 +21,13 @@ export class PaymentsProcessor extends DomainEventProcessor {
   }
 
   async handle(event: PublishedEvent) {
+    if (event.type === 'payment.refund_requested') {
+      await this.payments.refund(
+        event.id,
+        (event as PublishedEvent<'payment.refund_requested'>).payload,
+      );
+      return;
+    }
     if (event.type === 'order.placed') {
       await this.payments.settle(
         event.id,

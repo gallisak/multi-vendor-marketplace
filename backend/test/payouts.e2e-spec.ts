@@ -48,6 +48,7 @@ describe('Seller payouts (e2e)', () => {
       .expect(201);
     const orderId = res.body.id as string;
     const sellerOrderId = res.body.sellerOrders[0].id as string;
+    const itemId = res.body.sellerOrders[0].items[0].id as string;
     await vi.waitFor(async () => {
       const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
       expect(order.paymentStatus).toBe('CAPTURED');
@@ -62,7 +63,7 @@ describe('Seller payouts (e2e)', () => {
       .post(`/api/orders/${orderId}/seller-orders/${sellerOrderId}/confirm-delivery`)
       .set(bearer(buyer.token))
       .expect(200);
-    return { orderId, sellerOrderId };
+    return { orderId, sellerOrderId, itemId };
   };
 
   const pastHold = (sellerOrderId: string) =>
@@ -129,6 +130,32 @@ describe('Seller payouts (e2e)', () => {
     }, WAIT);
   });
 
+  it('nets a refund made after the payout against the next payout', async () => {
+    const buyer = await createActor(app, prisma, Role.CUSTOMER);
+    const first = await deliveredOrder(buyer, 10_000);
+    await pastHold(first.sellerOrderId);
+    await vi.waitFor(async () => {
+      expect((await payouts()).body.paidOutMinor).toBe(27_000);
+    }, WAIT);
+
+    await http()
+      .post(`/api/seller/orders/${first.sellerOrderId}/refunds`)
+      .set(bearer(seller.token))
+      .set('Idempotency-Key', randomUUID())
+      .send({ orderItemId: first.itemId, quantity: 1 })
+      .expect(201);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect((await payouts()).body).toMatchObject({ pendingMinor: -9_000, total: 2 });
+
+    const second = await deliveredOrder(buyer, 30_000);
+    await pastHold(second.sellerOrderId);
+    await vi.waitFor(async () => {
+      const paid = await payouts();
+      expect(paid.body).toMatchObject({ total: 3, pendingMinor: 0, paidOutMinor: 45_000 });
+      expect(paid.body.items[0].amountMinor).toBe(18_000);
+    }, WAIT);
+  });
+
   it('shows payouts to admins and keeps them private between sellers', async () => {
     const [other, customer] = await Promise.all([
       createActor(app, prisma, Role.SELLER),
@@ -139,7 +166,7 @@ describe('Seller payouts (e2e)', () => {
       .get(`/api/admin/payouts?sellerId=${seller.sellerId}`)
       .set(bearer(admin.token))
       .expect(200);
-    expect(all.body.total).toBe(1);
+    expect(all.body.total).toBe(3);
     expect(all.body.items.every((p: { sellerId: string }) => p.sellerId === seller.sellerId)).toBe(
       true,
     );

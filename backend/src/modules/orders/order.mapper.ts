@@ -47,7 +47,7 @@ function toItemDto(item: OrderWithRelations['sellerOrders'][number]['items'][num
 
 export const SELLER_ORDER_INCLUDE = {
   items: { orderBy: { productId: 'asc' } },
-  refunds: { select: { commissionReversalMinor: true } },
+  refunds: { orderBy: { createdAt: 'asc' } },
   order: { select: { paymentStatus: true } },
 } satisfies Prisma.SellerOrderInclude;
 
@@ -84,6 +84,15 @@ export function toSellerOrderDto(sellerOrder: SellerOrderWithRelations): SellerO
     payoutMinor: Number(sellerPayout(sellerOrder)),
     cancelReason: sellerOrder.cancelReason,
     items: sellerOrder.items.map(toItemDto),
+    refunds: sellerOrder.refunds.map((refund) => ({
+      id: refund.id,
+      orderItemId: refund.orderItemId,
+      quantity: refund.quantity,
+      amountMinor: Number(refund.amountMinor),
+      commissionReversalMinor: Number(refund.commissionReversalMinor),
+      reason: refund.reason,
+      createdAt: refund.createdAt,
+    })),
     createdAt: sellerOrder.createdAt,
     updatedAt: sellerOrder.updatedAt,
   };

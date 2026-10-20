@@ -3,9 +3,10 @@ import { PaginationQueryDto, toPage, toSkipTake } from '../../common/pagination.
 import { SellerOrderStatus } from '../../generated/prisma/enums.js';
 import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { OrderLifecycleService } from './order-lifecycle.service.js';
+import { assertPaid } from './refund-rules.js';
 import { toOrderDto } from './order.mapper.js';
-import type { OrderDto } from './orders.dto.js';
 import { OrdersRepository } from './orders.repository.js';
+import type { OrderDto } from './orders.dto.js';
 
 @Injectable()
 export class OrdersService {
@@ -35,6 +36,20 @@ export class OrdersService {
     }
     await this.uow.run((tx) =>
       this.lifecycle.transition(tx, sellerOrderId, SellerOrderStatus.COMPLETED),
+    );
+    return this.getForBuyer(buyerId, orderId);
+  }
+
+  async cancelByBuyer(buyerId: string, orderId: string, sellerOrderId: string, reason?: string) {
+    const sellerOrder = await this.orders.findBuyerSellerOrder(buyerId, orderId, sellerOrderId);
+    if (!sellerOrder) {
+      throw new NotFoundException('Seller order not found');
+    }
+    assertPaid(sellerOrder.order.paymentStatus);
+    await this.uow.run((tx) =>
+      this.lifecycle.cancel(tx, sellerOrderId, reason ?? 'Cancelled by buyer', [
+        SellerOrderStatus.NEW,
+      ]),
     );
     return this.getForBuyer(buyerId, orderId);
   }

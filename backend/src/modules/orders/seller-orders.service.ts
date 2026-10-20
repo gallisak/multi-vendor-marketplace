@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { toPage, toSkipTake } from '../../common/pagination.js';
-import { PaymentStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
+import { SellerOrderStatus } from '../../generated/prisma/enums.js';
 import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { SellersService } from '../sellers/sellers.service.js';
+import { assertPaid } from './refund-rules.js';
 import { OrderLifecycleService } from './order-lifecycle.service.js';
 import { toSellerOrderDto } from './order.mapper.js';
 import type { SellerOrderDto, SellerOrdersQueryDto } from './orders.dto.js';
@@ -33,15 +34,20 @@ export class SellerOrdersService {
 
   async accept(userId: string, sellerOrderId: string): Promise<SellerOrderDto> {
     const sellerOrder = await this.findOwned(userId, sellerOrderId);
-    if (sellerOrder.order.paymentStatus !== PaymentStatus.CAPTURED) {
-      throw new ConflictException('The order is not paid yet');
-    }
+    assertPaid(sellerOrder.order.paymentStatus);
     return this.moveTo(userId, sellerOrderId, SellerOrderStatus.PROCESSING);
   }
 
   async ship(userId: string, sellerOrderId: string): Promise<SellerOrderDto> {
     await this.findOwned(userId, sellerOrderId);
     return this.moveTo(userId, sellerOrderId, SellerOrderStatus.SHIPPED);
+  }
+
+  async cancel(userId: string, sellerOrderId: string, reason: string): Promise<SellerOrderDto> {
+    const sellerOrder = await this.findOwned(userId, sellerOrderId);
+    assertPaid(sellerOrder.order.paymentStatus);
+    await this.uow.run((tx) => this.lifecycle.cancel(tx, sellerOrderId, reason));
+    return this.get(userId, sellerOrderId);
   }
 
   private async moveTo(userId: string, sellerOrderId: string, to: SellerOrderStatus) {

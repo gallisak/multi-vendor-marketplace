@@ -224,7 +224,7 @@ describe('Order lifecycle and payment saga (e2e)', () => {
     await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'PENDING' } });
     await sellerAction(sellerA, so, 'accept')
       .expect(409)
-      .expect(({ body }) => expect(body.message).toBe('The order is not paid yet'));
+      .expect(({ body }) => expect(body.message).toMatch(/still being processed/));
     await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'CAPTURED' } });
 
     await sellerAction(sellerA, so, 'ship').expect(409);

@@ -5,12 +5,13 @@ import { CheckoutService } from './checkout.service.js';
 import { OrdersCoreModule } from './orders-core.module.js';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
+import { RefundsService } from './refunds.service.js';
 import { SellerOrdersController } from './seller-orders.controller.js';
 import { SellerOrdersService } from './seller-orders.service.js';
 
 @Module({
   imports: [OrdersCoreModule, SellersModule, CartModule],
   controllers: [OrdersController, SellerOrdersController],
-  providers: [CheckoutService, OrdersService, SellerOrdersService],
+  providers: [CheckoutService, OrdersService, SellerOrdersService, RefundsService],
 })
 export class OrdersModule {}

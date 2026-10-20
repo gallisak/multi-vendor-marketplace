@@ -11,8 +11,17 @@ export interface ChargeRequest {
 
 export type ChargeResult = { ok: true; providerRef: string } | { ok: false; reason: string };
 
+export interface RefundRequest {
+  idempotencyKey: string;
+  providerRef: string | null;
+  amountMinor: bigint;
+}
+
+export type RefundResult = { ok: true; providerRef: string } | { ok: false; reason: string };
+
 export interface PaymentGateway {
   charge(request: ChargeRequest): Promise<ChargeResult>;
+  refund(request: RefundRequest): Promise<RefundResult>;
 }
 
 export function mockCharge(request: ChargeRequest, declineAboveMinor: bigint): ChargeResult {
@@ -34,5 +43,9 @@ export class MockPaymentGateway implements PaymentGateway {
 
   charge(request: ChargeRequest): Promise<ChargeResult> {
     return Promise.resolve(mockCharge(request, this.declineAboveMinor));
+  }
+
+  refund(request: RefundRequest): Promise<RefundResult> {
+    return Promise.resolve({ ok: true, providerRef: `mock_refund_${request.idempotencyKey}` });
   }
 }

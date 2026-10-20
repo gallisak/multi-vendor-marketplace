@@ -59,6 +59,19 @@ export function notificationFor(event: PublishedEvent): NotificationDraft | null
         payload: { orderId: p.orderId, reason: p.reason },
       };
     }
+    case 'payment.refund_requested': {
+      const p = (event as PublishedEvent<'payment.refund_requested'>).payload;
+      return {
+        userId: p.buyerId,
+        type: event.type,
+        payload: {
+          orderId: p.orderId,
+          sellerOrderId: p.sellerOrderId,
+          amountMinor: p.amountMinor,
+          reason: p.reason,
+        },
+      };
+    }
     default:
       return null;
   }

@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import type { Counter } from 'prom-client';
 import {
+  type DomainEventPayloads,
   paymentCaptured,
   paymentFailed,
   sellerOrderPaid,
@@ -85,5 +86,31 @@ export class PaymentsService {
         result.ok ? 'Payment captured' : 'Payment failed, order compensated',
       );
     });
+  }
+
+  async refund(eventId: string, request: DomainEventPayloads['payment.refund_requested']) {
+    const payment = await this.payments.findByOrder(request.orderId);
+    const idempotencyKey = request.refundId ?? `cancel_${request.sellerOrderId}`;
+    const result = await this.gateway.refund({
+      idempotencyKey,
+      providerRef: payment?.providerRef ?? null,
+      amountMinor: BigInt(request.amountMinor),
+    });
+    if (!result.ok) {
+      throw new Error(`Provider refused refund ${idempotencyKey}: ${result.reason}`);
+    }
+
+    const applied = await this.idempotent.runOnce('payments', eventId, () => Promise.resolve());
+    if (applied) {
+      this.attempts.inc({ status: 'refunded' });
+      this.logger.log(
+        {
+          orderId: request.orderId,
+          amountMinor: request.amountMinor,
+          providerRef: result.providerRef,
+        },
+        'Refund sent to the payment provider',
+      );
+    }
   }
 }

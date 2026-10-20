@@ -1,5 +1,9 @@
 import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { productChanged, sellerOrderStatusChanged } from '../../common/events/domain-events.js';
+import {
+  productChanged,
+  refundRequested,
+  sellerOrderStatusChanged,
+} from '../../common/events/domain-events.js';
 import { type OrderStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import type { Transaction } from '../../infra/prisma/unit-of-work.js';
@@ -8,6 +12,7 @@ import { LedgerService } from '../ledger/ledger.service.js';
 import { InventoryRepository } from './inventory.repository.js';
 import { aggregateOrderStatus, canTransition } from './order-status.js';
 import { OrdersRepository } from './orders.repository.js';
+import { paymentStatusAfterRefund, REFUNDABLE_PAYMENT_STATUSES } from './refund-rules.js';
 
 export interface TransitionResult {
   sellerOrderId: string;
@@ -39,11 +44,15 @@ export class OrderLifecycleService {
     sellerOrderId: string,
     to: SellerOrderStatus,
     reason: string | null = null,
+    allowedFrom?: SellerOrderStatus[],
   ): Promise<TransitionResult> {
     const orderId = await this.orders.orderIdOf(sellerOrderId, tx);
     await this.lockOrder(tx, orderId);
 
     const current = await this.orders.sellerOrderState(sellerOrderId, tx);
+    if (allowedFrom && !allowedFrom.includes(current.status)) {
+      throw new ConflictException(`Seller order is already ${current.status}`);
+    }
     if (!canTransition(current.status, to)) {
       throw new ConflictException(`Seller order cannot move from ${current.status} to ${to}`);
     }
@@ -73,8 +82,19 @@ export class OrderLifecycleService {
     return { sellerOrderId, orderId, from: current.status, to, orderStatus };
   }
 
-  async cancel(tx: Transaction, sellerOrderId: string, reason: string): Promise<TransitionResult> {
-    const result = await this.transition(tx, sellerOrderId, SellerOrderStatus.CANCELLED, reason);
+  async cancel(
+    tx: Transaction,
+    sellerOrderId: string,
+    reason: string,
+    allowedFrom?: SellerOrderStatus[],
+  ): Promise<TransitionResult> {
+    const result = await this.transition(
+      tx,
+      sellerOrderId,
+      SellerOrderStatus.CANCELLED,
+      reason,
+      allowedFrom,
+    );
 
     const sellerOrder = await this.orders.sellerOrderForSettlement(sellerOrderId, tx);
     for (const item of sellerOrder.items) {
@@ -88,16 +108,62 @@ export class OrderLifecycleService {
       ...sellerOrder.items.map((item) => productChanged(item.productId, 'stock_changed')),
     );
 
+    const openSubtotal = sellerOrder.subtotalMinor - sellerOrder.refundedMinor;
     await this.ledger.recordCancellation(
       {
         sellerId: sellerOrder.sellerId,
         sellerOrderId,
-        openSubtotalMinor: sellerOrder.subtotalMinor - sellerOrder.refundedMinor,
+        openSubtotalMinor: openSubtotal,
         openCommissionMinor: openCommission(sellerOrder),
       },
       tx,
     );
 
+    if (openSubtotal > 0n) {
+      const refunded = await this.refundBuyer(tx, {
+        orderId: result.orderId,
+        sellerOrderId,
+        refundId: null,
+        amountMinor: openSubtotal,
+        reason,
+      });
+      if (refunded) {
+        await this.orders.markFullyRefunded(sellerOrderId, sellerOrder.subtotalMinor, tx);
+      }
+    }
+
     return result;
+  }
+
+  async refundBuyer(
+    tx: Transaction,
+    refund: {
+      orderId: string;
+      sellerOrderId: string;
+      refundId: string | null;
+      amountMinor: bigint;
+      reason: string;
+    },
+  ) {
+    const order = await this.orders.findWithPayment(refund.orderId, tx);
+    if (!order.payment || !REFUNDABLE_PAYMENT_STATUSES.includes(order.payment.status)) {
+      return false;
+    }
+
+    const refundedMinor = order.refundedMinor + refund.amountMinor;
+    const paymentStatus = paymentStatusAfterRefund(order.payment.amountMinor, refundedMinor);
+    await this.orders.applyRefund(order.id, refundedMinor, paymentStatus, tx);
+    await this.outbox.add(
+      tx,
+      refundRequested({
+        orderId: order.id,
+        buyerId: order.buyerId,
+        sellerOrderId: refund.sellerOrderId,
+        refundId: refund.refundId,
+        amountMinor: refund.amountMinor.toString(),
+        reason: refund.reason,
+      }),
+    );
+    return true;
   }
 }
