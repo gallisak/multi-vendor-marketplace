@@ -29,7 +29,7 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) {
+    if (isPublic || context.getType() !== 'http') {
       return true;
     }
 

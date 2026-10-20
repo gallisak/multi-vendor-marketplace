@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { CORRELATION_HEADER } from './common/correlation.js';
 import type { Env } from './infra/config/env.schema.js';
+import { RedisIoAdapter } from './infra/realtime/redis-io.adapter.js';
 
 export function setupApp(app: INestApplication) {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
@@ -27,6 +28,14 @@ export function setupApp(app: INestApplication) {
     }),
   );
   app.enableShutdownHooks();
+
+  const ioAdapter = new RedisIoAdapter(
+    app,
+    config.get('REDIS_URL', { infer: true }),
+    config.get('CORS_ORIGIN', { infer: true }).split(','),
+  );
+  ioAdapter.connect();
+  app.useWebSocketAdapter(ioAdapter);
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Multi-Vendor Marketplace API')

@@ -10,6 +10,7 @@ export interface AccessTokenPayload {
   role: Role;
   iat?: number;
   iatMs?: number;
+  exp?: number;
 }
 
 export interface IssuedTokens {

@@ -68,6 +68,15 @@ const providers = [
     help: 'Auctions closed or relisted by the sweeper',
     labelNames: ['outcome'],
   }),
+  makeGaugeProvider({
+    name: METRIC.wsConnections,
+    help: 'Open WebSocket connections on this instance',
+  }),
+  makeCounterProvider({
+    name: METRIC.realtimeMessages,
+    help: 'Realtime messages pushed to WebSocket rooms',
+    labelNames: ['event'],
+  }),
   makeCounterProvider({
     name: METRIC.searchFallbacks,
     help: 'Search requests served from the database fallback',

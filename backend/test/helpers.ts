@@ -36,6 +36,7 @@ export class RoleProbeController {
 export interface TestAppOptions {
   controllers?: Type[];
   withWorker?: boolean;
+  listen?: boolean;
   overrides?: { token: unknown; value: unknown }[];
 }
 
@@ -43,6 +44,7 @@ export async function createTestApp(options: TestAppOptions | Type[] = {}) {
   const {
     controllers = [],
     withWorker = false,
+    listen = false,
     overrides = [],
   } = Array.isArray(options) ? { controllers: options } : options;
   let builder = Test.createTestingModule({
@@ -55,7 +57,11 @@ export async function createTestApp(options: TestAppOptions | Type[] = {}) {
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ bufferLogs: true });
   setupApp(app);
-  await app.init();
+  if (listen) {
+    await app.listen(0, '127.0.0.1');
+  } else {
+    await app.init();
+  }
   return { app, prisma: app.get(PrismaService) };
 }
 

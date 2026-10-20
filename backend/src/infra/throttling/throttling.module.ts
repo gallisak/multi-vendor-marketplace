@@ -35,6 +35,7 @@ class ThrottlerStorageModule {}
             name: 'default',
             ttl: MINUTE,
             limit: config.get('RATE_LIMIT_PER_MINUTE', { infer: true }),
+            skipIf: (context) => context.getType() !== 'http',
           },
           {
             name: 'login-email',

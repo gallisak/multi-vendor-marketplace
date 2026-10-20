@@ -12,4 +12,6 @@ export const METRIC = {
   payouts: 'payouts_total',
   bids: 'bids_total',
   auctionsClosed: 'auctions_closed_total',
+  wsConnections: 'ws_connections',
+  realtimeMessages: 'realtime_messages_total',
 } as const;

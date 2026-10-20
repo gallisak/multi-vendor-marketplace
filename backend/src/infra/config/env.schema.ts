@@ -48,6 +48,7 @@ export const envSchema = z
     AUCTION_CHECKOUT_WINDOW: duration('24h'),
     AUCTION_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
     BID_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30),
+    REALTIME_AUTH_RECHECK_MS: z.coerce.number().int().min(100).default(30_000),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') {

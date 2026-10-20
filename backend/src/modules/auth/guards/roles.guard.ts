@@ -13,7 +13,7 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!required?.length) {
+    if (!required?.length || context.getType() !== 'http') {
       return true;
     }
 

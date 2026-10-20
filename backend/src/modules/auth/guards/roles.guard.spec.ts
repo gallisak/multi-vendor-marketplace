@@ -6,6 +6,7 @@ import { RolesGuard } from './roles.guard.js';
 
 const contextFor = (user?: AuthUser) =>
   ({
+    getType: () => 'http',
     getHandler: () => undefined,
     getClass: () => undefined,
     switchToHttp: () => ({ getRequest: () => ({ user }) }),

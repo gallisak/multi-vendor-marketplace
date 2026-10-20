@@ -12,6 +12,7 @@ import { LedgerModule } from './modules/ledger/ledger.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
+import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { SearchModule } from './modules/search/search.module.js';
 import { SellersModule } from './modules/sellers/sellers.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/users/users.module.js';
     LedgerModule,
     OrdersModule,
     AuctionsModule,
+    RealtimeModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: AllExceptionsFilter }],
 })
