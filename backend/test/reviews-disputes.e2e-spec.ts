@@ -202,7 +202,15 @@ describe('Reviews and disputes (e2e)', () => {
         .expect(201);
 
       const dispute = await open(buyer, order).expect(201);
-      expect(dispute.body).toMatchObject({ status: 'OPEN', orderId: order.orderId });
+      expect(dispute.body).toMatchObject({
+        status: 'OPEN',
+        orderId: order.orderId,
+        sellerOrderStatus: 'SHIPPED',
+        storeName: expect.any(String),
+        subtotalMinor: expect.any(Number),
+        refundedMinor: expect.any(Number),
+      });
+      expect(dispute.body.refundedMinor).toBeGreaterThan(0);
       await open(buyer, order).expect(409);
       await open(stranger, order).expect(404);
 

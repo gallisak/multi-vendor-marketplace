@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { DisputesPage } from '@/pages/account-disputes';
+import { AnalyticsPage } from '@/pages/admin-analytics';
+import { ApplicationsPage } from '@/pages/admin-applications';
+import { CategoriesPage } from '@/pages/admin-categories';
+import { AdminDisputesPage } from '@/pages/admin-disputes';
+import { AdminPayoutsPage } from '@/pages/admin-payouts';
+import { ModerationPage } from '@/pages/admin-products';
 import { OrderPage } from '@/pages/account-order';
 import { OrdersPage } from '@/pages/account-orders';
 import { BecomeSellerPage } from '@/pages/become-seller';
@@ -21,6 +27,7 @@ import { SellerProductsPage } from '@/pages/seller-products';
 import type { Role } from '@/shared/api';
 import { EmptyState } from '@/shared/ui/states';
 import { AccountLayout } from '../layouts/AccountLayout';
+import { AdminLayout } from '../layouts/AdminLayout';
 import { AppLayout } from '../layouts/AppLayout';
 import { SellerLayout } from '../layouts/SellerLayout';
 import { RequireAuth } from './RequireAuth';
@@ -62,6 +69,18 @@ export const router = createBrowserRouter([
           { path: 'orders/:id', element: <SellerOrderPage /> },
           { path: 'disputes', element: <SellerDisputesPage /> },
           { path: 'payouts', element: <SellerPayoutsPage /> },
+        ],
+      },
+      {
+        path: 'admin',
+        element: guard(<AdminLayout />, ['ADMIN']),
+        children: [
+          { index: true, element: <AnalyticsPage /> },
+          { path: 'applications', element: <ApplicationsPage /> },
+          { path: 'products', element: <ModerationPage /> },
+          { path: 'categories', element: <CategoriesPage /> },
+          { path: 'disputes', element: <AdminDisputesPage /> },
+          { path: 'payouts', element: <AdminPayoutsPage /> },
         ],
       },
       { path: 'login', element: <LoginPage /> },

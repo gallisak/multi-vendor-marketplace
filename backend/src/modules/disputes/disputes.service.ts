@@ -23,6 +23,10 @@ const DISPUTABLE: SellerOrderStatus[] = [SellerOrderStatus.SHIPPED, SellerOrderS
 const toDto = ({ sellerOrder, ...dispute }: DisputeRow): DisputeDto => ({
   ...dispute,
   orderId: sellerOrder.orderId,
+  storeName: sellerOrder.seller.storeName,
+  sellerOrderStatus: sellerOrder.status,
+  subtotalMinor: Number(sellerOrder.subtotalMinor),
+  refundedMinor: Number(sellerOrder.refundedMinor),
 });
 
 @Injectable()

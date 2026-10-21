@@ -12,7 +12,15 @@ export const DISPUTE_SELECT = {
   resolutionNote: true,
   createdAt: true,
   resolvedAt: true,
-  sellerOrder: { select: { orderId: true } },
+  sellerOrder: {
+    select: {
+      orderId: true,
+      status: true,
+      subtotalMinor: true,
+      refundedMinor: true,
+      seller: { select: { storeName: true } },
+    },
+  },
 } satisfies Prisma.DisputeSelect;
 
 export type DisputeRow = Prisma.DisputeGetPayload<{ select: typeof DISPUTE_SELECT }>;

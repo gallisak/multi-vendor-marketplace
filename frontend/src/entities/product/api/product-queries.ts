@@ -1,5 +1,12 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { api, type Page, type Product, type ProductStatus, type SearchResult } from '@/shared/api';
+import {
+  api,
+  type Page,
+  type Product,
+  type ProductStatus,
+  type SearchResult,
+  type SellerProduct,
+} from '@/shared/api';
 import type { CatalogFilters } from '../model/catalog-filters';
 
 export const useSearch = (filters: CatalogFilters) =>
@@ -26,5 +33,5 @@ export const useSimilarProducts = (id: string | undefined) =>
 export const useModerationQueue = (status: ProductStatus | undefined) =>
   useQuery({
     queryKey: ['admin', 'products', status],
-    queryFn: () => api<Page<Product>>('/admin/products', { query: { status, limit: 100 } }),
+    queryFn: () => api<Page<SellerProduct>>('/admin/products', { query: { status, limit: 100 } }),
   });

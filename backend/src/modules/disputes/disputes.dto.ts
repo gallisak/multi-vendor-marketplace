@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsIn, IsOptional, IsString, Length } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination.js';
-import { DisputeStatus } from '../../generated/prisma/enums.js';
+import { DisputeStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
 import { trim } from '../../common/transforms.js';
 
 export const DISPUTE_DECISIONS = ['BUYER', 'SELLER'] as const;
@@ -42,6 +42,10 @@ export class DisputeDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ format: 'uuid' }) sellerOrderId: string;
   @ApiProperty({ format: 'uuid' }) orderId: string;
+  @ApiProperty({ example: 'Tech Store' }) storeName: string;
+  @ApiProperty({ enum: SellerOrderStatus }) sellerOrderStatus: SellerOrderStatus;
+  @ApiProperty() subtotalMinor: number;
+  @ApiProperty() refundedMinor: number;
   @ApiProperty({ enum: DisputeStatus }) status: DisputeStatus;
   @ApiProperty() reason: string;
   @ApiPropertyOptional({ nullable: true, type: String }) resolutionNote: string | null;

@@ -239,6 +239,10 @@ export interface Dispute {
   id: string;
   sellerOrderId: string;
   orderId: string;
+  storeName: string;
+  sellerOrderStatus: SellerOrderStatus;
+  subtotalMinor: number;
+  refundedMinor: number;
   status: DisputeStatus;
   reason: string;
   resolutionNote: string | null;
