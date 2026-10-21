@@ -1,4 +1,4 @@
-import { Bell, LogOut, Package, ShoppingCart, Store, User as UserIcon } from 'lucide-react';
+import { Bell, LogOut, Package, Scale, ShoppingCart, Store, User as UserIcon } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { useCart } from '@/entities/cart';
 import { useNotifications } from '@/entities/notification';
@@ -48,10 +48,16 @@ function UserMenu() {
       <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate('/account/orders')}>
-          <Package /> My orders
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate('/account/disputes')}>Disputes</DropdownMenuItem>
+        {user.role !== 'ADMIN' && (
+          <>
+            <DropdownMenuItem onSelect={() => navigate('/account/orders')}>
+              <Package /> My orders
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => navigate('/account/disputes')}>
+              <Scale /> Disputes
+            </DropdownMenuItem>
+          </>
+        )}
         {user.role === 'CUSTOMER' && (
           <DropdownMenuItem onSelect={() => navigate('/account/become-seller')}>
             <Store /> Become a seller
@@ -89,7 +95,7 @@ function CounterLink({
 
 function ViewerLinks() {
   const { user } = useAuth();
-  const cart = useCart(user !== null);
+  const cart = useCart(user !== null && user.role !== 'ADMIN');
   const notifications = useNotifications(user !== null);
   if (!user) return null;
   const unread = notifications.data?.filter((notification) => !notification.readAt).length ?? 0;
@@ -101,12 +107,14 @@ function ViewerLinks() {
         count={unread}
         icon={<Bell />}
       />
-      <CounterLink
-        to="/cart"
-        label="Cart items"
-        count={cart.data?.itemsCount ?? 0}
-        icon={<ShoppingCart />}
-      />
+      {user.role !== 'ADMIN' && (
+        <CounterLink
+          to="/cart"
+          label="Cart items"
+          count={cart.data?.itemsCount ?? 0}
+          icon={<ShoppingCart />}
+        />
+      )}
     </>
   );
 }

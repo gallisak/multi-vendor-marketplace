@@ -1,8 +1,15 @@
+import type { ReactNode } from 'react';
 import type { OrderItem } from '@/shared/api';
 import { Price } from '@/shared/ui/price';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
 
-export function OrderItemsTable({ items }: { items: OrderItem[] }) {
+export function OrderItemsTable({
+  items,
+  action,
+}: {
+  items: OrderItem[];
+  action?: (item: OrderItem) => ReactNode;
+}) {
   return (
     <Table>
       <TableHeader>
@@ -11,6 +18,7 @@ export function OrderItemsTable({ items }: { items: OrderItem[] }) {
           <TableHead className="text-right">Price</TableHead>
           <TableHead className="text-right">Qty</TableHead>
           <TableHead className="text-right">Total</TableHead>
+          {action && <TableHead className="w-0" />}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -31,6 +39,7 @@ export function OrderItemsTable({ items }: { items: OrderItem[] }) {
             <TableCell className="text-right">
               <Price minor={item.lineTotalMinor} />
             </TableCell>
+            {action && <TableCell className="text-right">{action(item)}</TableCell>}
           </TableRow>
         ))}
       </TableBody>

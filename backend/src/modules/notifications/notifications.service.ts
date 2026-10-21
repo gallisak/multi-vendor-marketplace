@@ -10,4 +10,8 @@ export class NotificationsService {
   recent(userId: string) {
     return this.notifications.findRecent(userId, RECENT_LIMIT);
   }
+
+  async markAllRead(userId: string) {
+    return { updated: await this.notifications.markAllRead(userId, new Date()) };
+  }
 }

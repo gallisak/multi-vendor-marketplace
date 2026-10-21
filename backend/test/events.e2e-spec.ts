@@ -341,6 +341,19 @@ describe('Outbox, queues and search sync (e2e)', () => {
         .set(bearer(sellerToken))
         .expect(200);
       expect(notifications.body).toHaveLength(1);
+      expect(notifications.body[0].readAt).toBeNull();
+
+      const marked = await http()
+        .post('/api/notifications/read')
+        .set(bearer(sellerToken))
+        .expect(200);
+      expect(marked.body).toEqual({ updated: 1 });
+      const afterRead = await http().get('/api/notifications').set(bearer(sellerToken)).expect(200);
+      expect(afterRead.body[0].readAt).not.toBeNull();
+      await http()
+        .post('/api/notifications/read')
+        .set(bearer(sellerToken))
+        .expect(200, { updated: 0 });
     });
   });
 });

@@ -12,7 +12,7 @@ export function describeNotification(notification: Notification): { text: string
       return { text: `New paid order for ${money(p.subtotalMinor)}`, link: `/seller/orders/${p.sellerOrderId}` };
     case 'seller-order.status_changed':
       return {
-        text: `Your order part is now ${p.to?.toLowerCase().replaceAll('_', ' ')}`,
+        text: `Your order part is now ${p.status?.toLowerCase().replaceAll('_', ' ')}`,
         link: `/account/orders/${p.orderId}`,
       };
     case 'order.payment_failed':

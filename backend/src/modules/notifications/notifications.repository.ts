@@ -18,6 +18,14 @@ export class NotificationsRepository extends PrismaRepository {
     });
   }
 
+  async markAllRead(userId: string, readAt: Date) {
+    const result = await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt },
+    });
+    return result.count;
+  }
+
   async createMany(notifications: NewNotification[], tx: Transaction) {
     await tx.notification.createMany({
       data: notifications.map((notification) => ({

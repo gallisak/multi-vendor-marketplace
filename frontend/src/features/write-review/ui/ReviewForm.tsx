@@ -10,12 +10,24 @@ import { useCreateReview } from '../api/use-create-review';
 
 const schema = z.object({
   rating: z.number().int().min(1, 'Pick a rating').max(5),
-  comment: z.string().trim().max(2000).optional(),
+  comment: z
+    .string()
+    .trim()
+    .max(2000, 'Keep it under 2000 characters')
+    .refine((value) => value.length === 0 || value.length >= 3, 'At least 3 characters'),
 });
 
 type ReviewValues = z.infer<typeof schema>;
 
-export function ReviewForm({ productId }: { productId: string }) {
+export function ReviewForm({
+  productId,
+  bordered = true,
+  onDone,
+}: {
+  productId: string;
+  bordered?: boolean;
+  onDone?: () => void;
+}) {
   const create = useCreateReview(productId);
   const form = useForm<ReviewValues>({
     resolver: zodResolver(schema),
@@ -28,14 +40,19 @@ export function ReviewForm({ productId }: { productId: string }) {
         onSuccess: () => {
           toast.success('Thanks for your review');
           form.reset();
+          onDone?.();
         },
         onError: (error) => toast.error(errorMessage(error)),
       },
     ),
   );
   return (
-    <form onSubmit={submit} className="space-y-2 rounded-xl border p-4" noValidate>
-      <p className="text-sm font-medium">Write a review</p>
+    <form
+      onSubmit={submit}
+      className={bordered ? 'space-y-2 rounded-xl border p-4' : 'space-y-2'}
+      noValidate
+    >
+      {bordered && <p className="text-sm font-medium">Write a review</p>}
       <Controller
         control={form.control}
         name="rating"
@@ -45,6 +62,9 @@ export function ReviewForm({ productId }: { productId: string }) {
         <p className="text-sm text-destructive">{form.formState.errors.rating.message}</p>
       )}
       <Textarea placeholder="What did you like or dislike?" {...form.register('comment')} />
+      {form.formState.errors.comment && (
+        <p className="text-sm text-destructive">{form.formState.errors.comment.message}</p>
+      )}
       <p className="text-xs text-muted-foreground">
         Only buyers who received this product can review it.
       </p>

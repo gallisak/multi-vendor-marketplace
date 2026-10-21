@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { AuthUser } from '../../common/auth/auth.types.js';
 import { CurrentUser } from '../../common/auth/decorators.js';
@@ -12,6 +12,10 @@ class NotificationDto {
   @ApiProperty() createdAt: Date;
 }
 
+class MarkReadResultDto {
+  @ApiProperty({ example: 3 }) updated: number;
+}
+
 @ApiTags('notifications')
 @Controller('notifications')
 export class NotificationsController {
@@ -21,5 +25,15 @@ export class NotificationsController {
   @ApiOkResponse({ type: [NotificationDto] })
   list(@CurrentUser() user: AuthUser): Promise<NotificationDto[]> {
     return this.notifications.recent(user.id);
+  }
+
+  @Post('read')
+  @HttpCode(200)
+  @ApiOkResponse({
+    type: MarkReadResultDto,
+    description: 'Marks every unread notification as read',
+  })
+  markAllRead(@CurrentUser() user: AuthUser): Promise<MarkReadResultDto> {
+    return this.notifications.markAllRead(user.id);
   }
 }
