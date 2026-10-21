@@ -42,13 +42,23 @@ export function auctionWindowError(endsAt: Date, now: Date = new Date()): string
   return null;
 }
 
-export function archiveBlockReason(
-  auction: { status: AuctionStatus; bidCount: number } | null,
-): string | null {
+type BiddableAuction = { status: AuctionStatus; bidCount: number } | null;
+
+function hasLiveBids(auction: BiddableAuction): boolean {
   if (!auction) {
-    return null;
+    return false;
   }
   const running =
     auction.status === AuctionStatus.ACTIVE || auction.status === AuctionStatus.AWAITING_CHECKOUT;
-  return running && auction.bidCount > 0 ? 'Auction with bids cannot be archived' : null;
+  return running && auction.bidCount > 0;
+}
+
+export function archiveBlockReason(auction: BiddableAuction): string | null {
+  return hasLiveBids(auction) ? 'Auction with bids cannot be archived' : null;
+}
+
+export function editBlockReason(auction: BiddableAuction, contentChanged: boolean): string | null {
+  return contentChanged && hasLiveBids(auction)
+    ? 'Auction with bids cannot be edited, bidders rely on the current description'
+    : null;
 }

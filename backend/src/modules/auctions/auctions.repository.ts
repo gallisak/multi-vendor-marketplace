@@ -64,7 +64,7 @@ export class AuctionsRepository extends PrismaRepository {
     return this.prisma.auction.findUnique({
       where: { productId },
       include: {
-        product: { select: { title: true, status: true } },
+        product: { select: { title: true, status: true, seller: { select: { userId: true } } } },
         leader: { select: { name: true } },
       },
     });

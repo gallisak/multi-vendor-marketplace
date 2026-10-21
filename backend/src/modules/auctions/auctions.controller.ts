@@ -11,7 +11,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import type { AuthUser } from '../../common/auth/auth.types.js';
-import { CurrentUser, Public, Roles } from '../../common/auth/decorators.js';
+import { CurrentUser, OptionalUser, Public, Roles } from '../../common/auth/decorators.js';
 import { IdempotencyKey } from '../../common/idempotency-key.decorator.js';
 import { Role } from '../../generated/prisma/enums.js';
 import { CheckoutService } from '../orders/checkout.service.js';
@@ -32,8 +32,11 @@ export class AuctionsController {
   @Get(':productId')
   @ApiOkResponse({ type: AuctionViewDto })
   @ApiNotFoundResponse()
-  view(@Param('productId', ParseUUIDPipe) productId: string) {
-    return this.auctions.view(productId);
+  view(
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @OptionalUser() viewer: AuthUser | undefined,
+  ) {
+    return this.auctions.view(productId, viewer?.id);
   }
 
   @Roles(Role.CUSTOMER, Role.SELLER)

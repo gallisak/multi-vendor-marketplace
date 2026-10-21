@@ -1,4 +1,4 @@
-import type { BuyerSellerOrder, Dispute, Order } from '@/shared/api';
+import type { BuyerSellerOrder, Order } from '@/shared/api';
 
 const PAID = ['CAPTURED', 'PARTIALLY_REFUNDED'];
 
@@ -11,12 +11,8 @@ export const canConfirmDelivery = (part: BuyerSellerOrder) => part.status === 'S
 
 export const canReviewItems = (part: BuyerSellerOrder) => part.status === 'COMPLETED';
 
-export const canOpenDispute = (
-  order: Order,
-  part: BuyerSellerOrder,
-  dispute: Dispute | undefined,
-) =>
+export const canOpenDispute = (order: Order, part: BuyerSellerOrder) =>
   isPaid(order) &&
   (part.status === 'SHIPPED' || part.status === 'COMPLETED') &&
   part.refundedMinor < part.subtotalMinor &&
-  dispute === undefined;
+  part.dispute === null;

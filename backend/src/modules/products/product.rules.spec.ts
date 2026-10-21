@@ -2,6 +2,7 @@ import { AuctionStatus, ProductStatus } from '../../generated/prisma/enums.js';
 import {
   archiveBlockReason,
   auctionWindowError,
+  editBlockReason,
   hasContentChanges,
   ProductContent,
   statusAfterEdit,
@@ -88,5 +89,21 @@ describe('archiveBlockReason', () => {
   it('allows archiving finished auctions', () => {
     expect(archiveBlockReason({ status: AuctionStatus.UNSOLD, bidCount: 0 })).toBeNull();
     expect(archiveBlockReason({ status: AuctionStatus.SOLD, bidCount: 5 })).toBeNull();
+  });
+});
+
+describe('editBlockReason', () => {
+  it('blocks content edits of running auctions that already have bids', () => {
+    expect(editBlockReason({ status: AuctionStatus.ACTIVE, bidCount: 2 }, true)).toMatch(/bids/);
+    expect(editBlockReason({ status: AuctionStatus.AWAITING_CHECKOUT, bidCount: 1 }, true)).toMatch(
+      /bids/,
+    );
+  });
+
+  it('allows edits without content changes, without bids or after the auction is over', () => {
+    expect(editBlockReason({ status: AuctionStatus.ACTIVE, bidCount: 2 }, false)).toBeNull();
+    expect(editBlockReason({ status: AuctionStatus.ACTIVE, bidCount: 0 }, true)).toBeNull();
+    expect(editBlockReason({ status: AuctionStatus.UNSOLD, bidCount: 0 }, true)).toBeNull();
+    expect(editBlockReason(null, true)).toBeNull();
   });
 });

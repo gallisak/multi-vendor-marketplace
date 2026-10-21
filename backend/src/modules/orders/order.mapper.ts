@@ -5,7 +5,22 @@ import { lineTotal } from './pricing.js';
 
 export const ORDER_INCLUDE = {
   sellerOrders: {
-    include: { seller: { select: { storeName: true } }, items: { orderBy: { productId: 'asc' } } },
+    include: {
+      seller: { select: { storeName: true } },
+      items: { orderBy: { productId: 'asc' } },
+      disputes: {
+        select: {
+          id: true,
+          status: true,
+          reason: true,
+          resolutionNote: true,
+          createdAt: true,
+          resolvedAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
     orderBy: { sellerId: 'asc' },
   },
 } satisfies Prisma.OrderInclude;
@@ -29,6 +44,7 @@ export function toOrderDto(order: OrderWithRelations): OrderDto {
       refundedMinor: Number(sellerOrder.refundedMinor),
       cancelReason: sellerOrder.cancelReason,
       items: sellerOrder.items.map(toItemDto),
+      dispute: sellerOrder.disputes[0] ?? null,
     })),
   };
 }

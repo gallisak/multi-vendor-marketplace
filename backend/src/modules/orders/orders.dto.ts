@@ -13,7 +13,12 @@ import {
 } from 'class-validator';
 import { MAX_LINE_QUANTITY } from '../cart/cart.rules.js';
 import { PaginationQueryDto } from '../../common/pagination.js';
-import { OrderStatus, PaymentStatus, SellerOrderStatus } from '../../generated/prisma/enums.js';
+import {
+  DisputeStatus,
+  OrderStatus,
+  PaymentStatus,
+  SellerOrderStatus,
+} from '../../generated/prisma/enums.js';
 import { trim } from '../../common/transforms.js';
 
 export class CheckoutDto {
@@ -37,6 +42,15 @@ export class OrderItemDto {
   @ApiProperty() lineTotalMinor: number;
 }
 
+export class SellerOrderDisputeDto {
+  @ApiProperty({ format: 'uuid' }) id: string;
+  @ApiProperty({ enum: DisputeStatus }) status: DisputeStatus;
+  @ApiProperty() reason: string;
+  @ApiPropertyOptional({ nullable: true, type: String }) resolutionNote: string | null;
+  @ApiProperty() createdAt: Date;
+  @ApiPropertyOptional({ nullable: true, type: Date }) resolvedAt: Date | null;
+}
+
 export class BuyerSellerOrderDto {
   @ApiProperty({ format: 'uuid' }) id: string;
   @ApiProperty({ format: 'uuid' }) sellerId: string;
@@ -46,6 +60,8 @@ export class BuyerSellerOrderDto {
   @ApiProperty() refundedMinor: number;
   @ApiPropertyOptional({ nullable: true, type: String }) cancelReason: string | null;
   @ApiProperty({ type: [OrderItemDto] }) items: OrderItemDto[];
+  @ApiPropertyOptional({ type: SellerOrderDisputeDto, nullable: true })
+  dispute: SellerOrderDisputeDto | null;
 }
 
 export class OrderDto {

@@ -1,4 +1,4 @@
-import type { BuyerSellerOrder, Dispute, Order } from '@/shared/api';
+import type { BuyerSellerOrder, Order } from '@/shared/api';
 import { canCancelPart, canConfirmDelivery, canOpenDispute, canReviewItems } from './buyer-actions';
 
 const part = (overrides: Partial<BuyerSellerOrder> = {}): BuyerSellerOrder => ({
@@ -10,6 +10,7 @@ const part = (overrides: Partial<BuyerSellerOrder> = {}): BuyerSellerOrder => ({
   refundedMinor: 0,
   cancelReason: null,
   items: [],
+  dispute: null,
   ...overrides,
 });
 
@@ -23,7 +24,14 @@ const order = (paymentStatus: Order['paymentStatus'] = 'CAPTURED'): Order => ({
   createdAt: '2026-10-21T10:00:00Z',
 });
 
-const dispute = { id: 'd1', sellerOrderId: 's1' } as Dispute;
+const dispute = {
+  id: 'd1',
+  status: 'CLOSED' as const,
+  reason: 'Broken on arrival',
+  resolutionNote: null,
+  createdAt: '2026-10-21T10:00:00Z',
+  resolvedAt: null,
+};
 
 describe('buyer actions on a seller order', () => {
   it('allows cancelling only a paid part the seller has not accepted yet', () => {
@@ -44,13 +52,11 @@ describe('buyer actions on a seller order', () => {
   });
 
   it('allows one dispute per shipped or completed part that still has money to return', () => {
-    expect(canOpenDispute(order(), part({ status: 'SHIPPED' }), undefined)).toBe(true);
-    expect(canOpenDispute(order(), part({ status: 'COMPLETED' }), undefined)).toBe(true);
-    expect(canOpenDispute(order(), part({ status: 'PROCESSING' }), undefined)).toBe(false);
-    expect(canOpenDispute(order(), part({ status: 'SHIPPED' }), dispute)).toBe(false);
-    expect(
-      canOpenDispute(order(), part({ status: 'SHIPPED', refundedMinor: 10_000 }), undefined),
-    ).toBe(false);
-    expect(canOpenDispute(order('REFUNDED'), part({ status: 'SHIPPED' }), undefined)).toBe(false);
+    expect(canOpenDispute(order(), part({ status: 'SHIPPED' }))).toBe(true);
+    expect(canOpenDispute(order(), part({ status: 'COMPLETED' }))).toBe(true);
+    expect(canOpenDispute(order(), part({ status: 'PROCESSING' }))).toBe(false);
+    expect(canOpenDispute(order(), part({ status: 'SHIPPED', dispute }))).toBe(false);
+    expect(canOpenDispute(order(), part({ status: 'SHIPPED', refundedMinor: 10_000 }))).toBe(false);
+    expect(canOpenDispute(order('REFUNDED'), part({ status: 'SHIPPED' }))).toBe(false);
   });
 });

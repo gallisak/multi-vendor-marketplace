@@ -25,20 +25,30 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    if (context.getType() !== 'http') {
+      return true;
+    }
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic || context.getType() !== 'http') {
-      return true;
-    }
-
     const req = context.switchToHttp().getRequest<Request & { user?: AuthUser }>();
     const token = extractBearerToken(req.headers.authorization);
+
+    if (isPublic) {
+      if (token) {
+        await this.authenticate(req, token).catch(() => undefined);
+      }
+      return true;
+    }
     if (!token) {
       throw new UnauthorizedException('Missing access token');
     }
+    await this.authenticate(req, token);
+    return true;
+  }
 
+  private async authenticate(req: Request & { user?: AuthUser }, token: string) {
     let payload: AccessTokenPayload;
     try {
       payload = await this.jwt.verifyAsync<AccessTokenPayload>(token, {
@@ -54,6 +64,5 @@ export class JwtAuthGuard implements CanActivate {
 
     req.user = { id: payload.sub, role: payload.role };
     this.cls.set('userId', payload.sub);
-    return true;
   }
 }

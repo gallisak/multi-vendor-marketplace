@@ -77,6 +77,7 @@ function setup(
           refundedMinor: 0n,
           cancelReason: null,
           seller: { storeName: sellerOrder.sellerId },
+          disputes: [],
           items: sellerOrder.lines.map((line) => ({
             id: `oi-${line.productId}`,
             productId: line.productId,

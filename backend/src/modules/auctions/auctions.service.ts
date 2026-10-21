@@ -82,7 +82,7 @@ export class AuctionsService {
     }
   }
 
-  async view(productId: string): Promise<AuctionViewDto> {
+  async view(productId: string, viewerId?: string): Promise<AuctionViewDto> {
     const auction = await this.auctions.findView(productId);
     if (!auction || !VIEWABLE_STATUSES.includes(auction.product.status)) {
       throw new NotFoundException('Auction not found');
@@ -112,6 +112,13 @@ export class AuctionsService {
         createdAt: bid.createdAt,
       })),
       serverTime: now,
+      viewer: viewerId
+        ? {
+            isSeller: auction.product.seller.userId === viewerId,
+            isLeader: auction.leaderId === viewerId,
+            isWinner: auction.winnerId === viewerId,
+          }
+        : null,
     };
   }
 

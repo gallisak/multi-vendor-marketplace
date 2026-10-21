@@ -147,6 +147,15 @@ export interface OrderItem {
   lineTotalMinor: number;
 }
 
+export interface SellerOrderDispute {
+  id: string;
+  status: DisputeStatus;
+  reason: string;
+  resolutionNote: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface BuyerSellerOrder {
   id: string;
   sellerId: string;
@@ -156,6 +165,7 @@ export interface BuyerSellerOrder {
   refundedMinor: number;
   cancelReason: string | null;
   items: OrderItem[];
+  dispute: SellerOrderDispute | null;
 }
 
 export interface Order {
@@ -211,6 +221,7 @@ export interface AuctionView {
   checkoutDeadline: string | null;
   recentBids: { amountMinor: number; bidder: string; createdAt: string }[];
   serverTime: string;
+  viewer: { isSeller: boolean; isLeader: boolean; isWinner: boolean } | null;
 }
 
 export interface BidResult {

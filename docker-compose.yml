@@ -29,6 +29,8 @@ x-backend-env: &backend-env
   CATALOG_LIST_CACHE_TTL_SECONDS: ${CATALOG_LIST_CACHE_TTL_SECONDS:-10}
   PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT:-10}
   PAYMENT_MOCK_DECLINE_ABOVE_MINOR: ${PAYMENT_MOCK_DECLINE_ABOVE_MINOR:-50000000}
+  PAYMENT_TIMEOUT: ${PAYMENT_TIMEOUT:-15m}
+  PAYMENT_EXPIRY_INTERVAL_MS: ${PAYMENT_EXPIRY_INTERVAL_MS:-60000}
   PAYOUT_HOLD: ${PAYOUT_HOLD:-7d}
   PAYOUT_INTERVAL_MS: ${PAYOUT_INTERVAL_MS:-60000}
   AUCTION_CHECKOUT_WINDOW: ${AUCTION_CHECKOUT_WINDOW:-24h}
@@ -44,7 +46,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mvm}
       POSTGRES_DB: ${POSTGRES_DB:-mvm}
     ports:
-      - '${POSTGRES_PORT:-5433}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -58,7 +60,7 @@ services:
     image: redis:7-alpine
     command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     volumes:
       - redis-data:/data
     healthcheck:
@@ -74,7 +76,7 @@ services:
       MEILI_ENV: development
       MEILI_NO_ANALYTICS: 'true'
     ports:
-      - '${MEILI_PORT:-7700}:7700'
+      - '127.0.0.1:${MEILI_PORT:-7700}:7700'
     volumes:
       - meili-data:/meili_data
     healthcheck:
@@ -140,7 +142,7 @@ services:
       <<: *backend-env
       WORKER_PORT: 3002
     ports:
-      - '${WORKER_PORT:-3002}:3002'
+      - '127.0.0.1:${WORKER_PORT:-3002}:3002'
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3002/health']

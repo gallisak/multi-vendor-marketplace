@@ -12,6 +12,9 @@ import { IdempotentConsumerService } from '../../infra/outbox/idempotent-consume
 import { METRIC } from '../../infra/metrics/metric-names.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { PAYMENT_FAILED_REASON } from '../notifications/notification-rules.js';
+import { type Transaction, UnitOfWork } from '../../infra/prisma/unit-of-work.js';
+
+export const PAYMENT_TIMEOUT_REASON = 'Payment was not confirmed in time';
 import { OrderLifecycleService } from '../orders/order-lifecycle.service.js';
 import { PAYMENT_GATEWAY, type PaymentGateway } from './payment-gateway.js';
 import { PaymentsRepository } from './payments.repository.js';
@@ -25,6 +28,7 @@ export class PaymentsService {
     private readonly outbox: OutboxService,
     private readonly idempotent: IdempotentConsumerService,
     private readonly lifecycle: OrderLifecycleService,
+    private readonly uow: UnitOfWork,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     @InjectMetric(METRIC.payments) private readonly attempts: Counter<string>,
   ) {}
@@ -40,19 +44,20 @@ export class PaymentsService {
       amountMinor: payment.amountMinor,
     });
 
+    let settled = false;
     await this.idempotent.runOnce('payments', eventId, async (tx) => {
       await this.lifecycle.lockOrder(tx, orderId);
       if (!(await this.payments.settlePending(orderId, result, tx))) {
         return;
       }
-
-      const order = await this.payments.setOrderPaymentStatus(
-        orderId,
-        result.ok ? PaymentStatus.CAPTURED : PaymentStatus.FAILED,
-        tx,
-      );
+      settled = true;
 
       if (result.ok) {
+        const order = await this.payments.setOrderPaymentStatus(
+          orderId,
+          PaymentStatus.CAPTURED,
+          tx,
+        );
         await this.outbox.add(
           tx,
           paymentCaptured({
@@ -71,13 +76,7 @@ export class PaymentsService {
           ),
         );
       } else {
-        for (const sellerOrder of order.sellerOrders) {
-          await this.lifecycle.cancel(tx, sellerOrder.id, PAYMENT_FAILED_REASON);
-        }
-        await this.outbox.add(
-          tx,
-          paymentFailed({ orderId, buyerId: order.buyerId, reason: result.reason }),
-        );
+        await this.compensate(tx, orderId, result.reason);
       }
 
       this.attempts.inc({ status: result.ok ? 'captured' : 'failed' });
@@ -86,6 +85,53 @@ export class PaymentsService {
         result.ok ? 'Payment captured' : 'Payment failed, order compensated',
       );
     });
+
+    if (result.ok && !settled) {
+      await this.voidLateCharge(orderId, payment.amountMinor, result.providerRef);
+    }
+  }
+
+  async expireStale(cutoff: Date, limit = 100) {
+    const orderIds = await this.payments.findStalePending(cutoff, limit);
+    let expired = 0;
+    for (const orderId of orderIds) {
+      const failed = await this.uow.run(async (tx) => {
+        await this.lifecycle.lockOrder(tx, orderId);
+        const outcome = { ok: false as const, reason: PAYMENT_TIMEOUT_REASON };
+        if (!(await this.payments.settlePending(orderId, outcome, tx))) {
+          return false;
+        }
+        await this.compensate(tx, orderId, PAYMENT_TIMEOUT_REASON);
+        return true;
+      });
+      if (failed) {
+        expired += 1;
+        this.attempts.inc({ status: 'expired' });
+        this.logger.warn({ orderId }, 'Payment timed out, order compensated');
+      }
+    }
+    return expired;
+  }
+
+  private async compensate(tx: Transaction, orderId: string, reason: string) {
+    const order = await this.payments.setOrderPaymentStatus(orderId, PaymentStatus.FAILED, tx);
+    for (const sellerOrder of order.sellerOrders) {
+      await this.lifecycle.cancel(tx, sellerOrder.id, PAYMENT_FAILED_REASON);
+    }
+    await this.outbox.add(tx, paymentFailed({ orderId, buyerId: order.buyerId, reason }));
+  }
+
+  private async voidLateCharge(orderId: string, amountMinor: bigint, providerRef: string) {
+    const voided = await this.gateway.refund({
+      idempotencyKey: `void_${orderId}`,
+      providerRef,
+      amountMinor,
+    });
+    if (!voided.ok) {
+      throw new Error(`Provider refused to void late charge for ${orderId}: ${voided.reason}`);
+    }
+    this.attempts.inc({ status: 'voided' });
+    this.logger.warn({ orderId, providerRef }, 'Charge arrived after the order expired, voided');
   }
 
   async refund(eventId: string, request: DomainEventPayloads['payment.refund_requested']) {

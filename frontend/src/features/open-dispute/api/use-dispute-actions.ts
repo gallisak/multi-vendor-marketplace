@@ -17,7 +17,10 @@ export function useOpenDispute() {
         method: 'POST',
         body: { reason },
       }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['disputes'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
   });
 }
 
@@ -25,6 +28,9 @@ export function useWithdrawDispute() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api<Dispute>(`/disputes/${id}/withdraw`, { method: 'POST' }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['disputes'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
   });
 }

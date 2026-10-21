@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useAuction, useLiveAuction, withLiveAuction } from '@/entities/auction';
-import { useAuth } from '@/entities/viewer';
 import { CheckoutAuctionButton } from '@/features/checkout-auction';
 import { BidForm } from '@/features/place-bid';
 import { formatDateTime, timeLeft, useNow } from '@/shared/lib';
@@ -8,8 +7,11 @@ import { Price } from '@/shared/ui/price';
 import { ErrorState, LoadingState } from '@/shared/ui/states';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
+function Note({ children }: { children: ReactNode }) {
+  return <div className="rounded-lg bg-muted p-3 text-sm">{children}</div>;
+}
+
 export function AuctionPanel({ productId }: { productId: string }) {
-  const { user } = useAuth();
   const auction = useAuction(productId);
   const live = useLiveAuction(productId);
   const offset = auction.data
@@ -18,10 +20,11 @@ export function AuctionPanel({ productId }: { productId: string }) {
   const now = useNow(1000, offset);
   const { refetch } = auction;
   const bidCount = live?.bidCount;
+  const liveStatus = live?.status;
 
   useEffect(() => {
-    if (bidCount !== undefined) void refetch();
-  }, [bidCount, refetch]);
+    if (bidCount !== undefined || liveStatus !== undefined) void refetch();
+  }, [bidCount, liveStatus, refetch]);
 
   if (auction.isPending) return <LoadingState rows={2} label="Loading auction" />;
   if (auction.isError) return <ErrorState error={auction.error} onRetry={() => void refetch()} />;
@@ -53,15 +56,29 @@ export function AuctionPanel({ productId }: { productId: string }) {
         </p>
       </div>
       {!ended ? (
-        <BidForm productId={productId} minimumMinor={view.minNextBidMinor} />
+        view.viewer?.isSeller ? (
+          <Note>This is your lot. Bids appear here live.</Note>
+        ) : view.viewer?.isLeader ? (
+          <Note>Your bid is the highest. We will notify you if someone outbids you.</Note>
+        ) : (
+          <BidForm productId={productId} minimumMinor={view.minNextBidMinor} />
+        )
       ) : view.status === 'AWAITING_CHECKOUT' ? (
-        <div className="space-y-2 rounded-lg bg-muted p-3 text-sm">
-          <p>
-            The winner can buy the lot at the winning price until{' '}
-            {view.checkoutDeadline && formatDateTime(view.checkoutDeadline)}.
-          </p>
-          {user && <CheckoutAuctionButton productId={productId} />}
-        </div>
+        view.viewer?.isWinner ? (
+          <div className="space-y-2 rounded-lg bg-muted p-3 text-sm">
+            <p>
+              You won. Buy the lot at the winning price until{' '}
+              {view.checkoutDeadline && formatDateTime(view.checkoutDeadline)}.
+            </p>
+            <CheckoutAuctionButton productId={productId} />
+          </div>
+        ) : (
+          <Note>
+            The lot is reserved for the winner until{' '}
+            {view.checkoutDeadline && formatDateTime(view.checkoutDeadline)}. If they do not buy it,
+            the auction starts again.
+          </Note>
+        )
       ) : (
         <p className="text-sm text-muted-foreground">Bidding is closed.</p>
       )}

@@ -15,6 +15,7 @@ import { SellersService } from '../sellers/sellers.service.js';
 import { toSellerProductDto } from './product.mapper.js';
 import {
   archiveBlockReason,
+  editBlockReason,
   auctionWindowError,
   hasContentChanges,
   statusAfterEdit,
@@ -101,7 +102,12 @@ export class SellerProductsService {
       await this.categories.assertExists(dto.categoryId);
     }
 
-    const status = statusAfterEdit(product.status, hasContentChanges(product, dto));
+    const contentChanged = hasContentChanges(product, dto);
+    const blockReason = editBlockReason(product.auction, contentChanged);
+    if (blockReason) {
+      throw new ConflictException(blockReason);
+    }
+    const status = statusAfterEdit(product.status, contentChanged);
     await this.uow.run(async (tx) => {
       const updated = await this.products.updateVersioned(
         product,

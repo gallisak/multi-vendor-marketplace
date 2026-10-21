@@ -378,6 +378,7 @@ model Payment {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([status, createdAt])
   @@map("payments")
 }
 

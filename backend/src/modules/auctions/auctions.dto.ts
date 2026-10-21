@@ -25,6 +25,12 @@ export class PublicBidDto {
   @ApiProperty() createdAt: Date;
 }
 
+export class AuctionViewerDto {
+  @ApiProperty({ description: 'The viewer is the seller of this lot' }) isSeller: boolean;
+  @ApiProperty({ description: 'The viewer holds the highest bid' }) isLeader: boolean;
+  @ApiProperty({ description: 'The viewer won and may check out' }) isWinner: boolean;
+}
+
 export class AuctionViewDto {
   @ApiProperty({ format: 'uuid' }) auctionId: string;
   @ApiProperty({ format: 'uuid' }) productId: string;
@@ -41,4 +47,10 @@ export class AuctionViewDto {
   @ApiPropertyOptional({ nullable: true, type: Date }) checkoutDeadline: Date | null;
   @ApiProperty({ type: [PublicBidDto] }) recentBids: PublicBidDto[];
   @ApiProperty({ description: 'Database time, for client countdowns' }) serverTime: Date;
+  @ApiPropertyOptional({
+    type: AuctionViewerDto,
+    nullable: true,
+    description: 'Present when the request carries a valid access token',
+  })
+  viewer: AuctionViewerDto | null;
 }

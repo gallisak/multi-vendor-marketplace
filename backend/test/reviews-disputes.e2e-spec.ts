@@ -214,6 +214,16 @@ describe('Reviews and disputes (e2e)', () => {
       await open(buyer, order).expect(409);
       await open(stranger, order).expect(404);
 
+      const withDispute = await http()
+        .get(`/api/orders/${order.orderId}`)
+        .set(bearer(buyer.token))
+        .expect(200);
+      expect(withDispute.body.sellerOrders[0].dispute).toMatchObject({
+        id: dispute.body.id,
+        status: 'OPEN',
+        reason: dispute.body.reason,
+      });
+
       const sellerList = await http()
         .get('/api/seller/disputes?limit=100')
         .set(bearer(seller.token));

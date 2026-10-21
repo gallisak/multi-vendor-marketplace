@@ -257,6 +257,34 @@ describe('Auctions (e2e)', () => {
       }, WAIT);
     });
 
+    it('tells the viewer whether they sell, lead or won the lot', async () => {
+      const [bidder, other] = await Promise.all([
+        createActor(app, prisma, Role.CUSTOMER),
+        createActor(app, prisma, Role.CUSTOMER),
+      ]);
+      const { productId, auctionId } = await createLot();
+      await bid(bidder, productId, START).expect(201);
+      const viewAs = (token?: string) => {
+        const req = http().get(`/api/auctions/${productId}`);
+        return (token ? req.set(bearer(token)) : req).expect(200);
+      };
+
+      expect((await viewAs()).body.viewer).toBeNull();
+      expect((await viewAs('not-a-jwt')).body.viewer).toBeNull();
+      expect((await viewAs(seller.token)).body.viewer).toEqual({
+        isSeller: true,
+        isLeader: false,
+        isWinner: false,
+      });
+      expect((await viewAs(bidder.token)).body.viewer).toMatchObject({ isLeader: true });
+      expect((await viewAs(other.token)).body.viewer).toMatchObject({ isLeader: false });
+
+      await endNow(auctionId);
+      await waitForStatus(auctionId, 'AWAITING_CHECKOUT');
+      expect((await viewAs(bidder.token)).body.viewer).toMatchObject({ isWinner: true });
+      expect((await viewAs(other.token)).body.viewer).toMatchObject({ isWinner: false });
+    });
+
     it('marks a lot without bids as unsold and stops accepting bids', async () => {
       const buyer = await createActor(app, prisma, Role.CUSTOMER);
       const { productId, auctionId } = await createLot();
@@ -340,6 +368,32 @@ describe('Auctions (e2e)', () => {
       expect(products.map((p) => p.status).sort()).toEqual(['PENDING_MODERATION', 'REJECTED']);
       await http().get(`/api/products/${rejected.productId}`).expect(404);
       await http().get(`/api/auctions/${pending.productId}`).expect(404);
+    });
+
+    it('refuses to edit or hide a lot once bidding has started', async () => {
+      const bidder = await createActor(app, prisma, Role.CUSTOMER);
+      const admin = await createActor(app, prisma, Role.ADMIN);
+      const { productId } = await createLot();
+      await http()
+        .patch(`/api/seller/products/${productId}`)
+        .set(bearer(seller.token))
+        .send({ description: 'Edited before any bids' })
+        .expect(200);
+      await http()
+        .post(`/api/admin/products/${productId}/approve`)
+        .set(bearer(admin.token))
+        .expect(200);
+      await bid(bidder, productId, START).expect(201);
+
+      await http()
+        .patch(`/api/seller/products/${productId}`)
+        .set(bearer(seller.token))
+        .send({ title: 'Renamed mid auction' })
+        .expect(409);
+
+      const product = await prisma.product.findUniqueOrThrow({ where: { id: productId } });
+      expect(product.status).toBe(ProductStatus.ACTIVE);
+      await http().get(`/api/auctions/${productId}`).expect(200);
     });
 
     it('counts the bidding window from approval, not from creation', async () => {

@@ -20,6 +20,16 @@ export class PaymentsRepository extends PrismaRepository {
     return count === 1;
   }
 
+  async findStalePending(cutoff: Date, limit: number) {
+    const rows = await this.prisma.payment.findMany({
+      where: { status: PaymentStatus.PENDING, createdAt: { lt: cutoff } },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+      select: { orderId: true },
+    });
+    return rows.map((row) => row.orderId);
+  }
+
   setOrderPaymentStatus(orderId: string, paymentStatus: PaymentStatus, tx: Transaction) {
     return tx.order.update({
       where: { id: orderId },

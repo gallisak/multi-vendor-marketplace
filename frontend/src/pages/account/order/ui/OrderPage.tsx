@@ -1,6 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link, useParams } from 'react-router';
-import { useMyDisputes } from '@/entities/dispute';
 import {
   canCancelPart,
   canConfirmDelivery,
@@ -13,7 +12,7 @@ import {
 import { CancelPartDialog, ConfirmDeliveryButton } from '@/features/manage-order-part';
 import { OpenDisputeDialog, WithdrawDisputeButton } from '@/features/open-dispute';
 import { ReviewDialog } from '@/features/write-review';
-import type { BuyerSellerOrder, Dispute, Order } from '@/shared/api';
+import type { BuyerSellerOrder, Order, SellerOrderDispute } from '@/shared/api';
 import { formatDateTime } from '@/shared/lib';
 import { useConnectionStatus } from '@/shared/realtime';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
@@ -24,7 +23,7 @@ import { Price } from '@/shared/ui/price';
 import { ErrorState, LoadingState } from '@/shared/ui/states';
 import { StatusBadge } from '@/shared/ui/status-badge';
 
-function DisputeNote({ dispute }: { dispute: Dispute }) {
+function DisputeNote({ dispute }: { dispute: SellerOrderDispute }) {
   return (
     <div className="space-y-1 rounded-lg bg-muted/60 p-3 text-sm">
       <div className="flex items-center justify-between gap-2">
@@ -39,15 +38,7 @@ function DisputeNote({ dispute }: { dispute: Dispute }) {
   );
 }
 
-function SellerPart({
-  order,
-  part,
-  dispute,
-}: {
-  order: Order;
-  part: BuyerSellerOrder;
-  dispute: Dispute | undefined;
-}) {
+function SellerPart({ order, part }: { order: Order; part: BuyerSellerOrder }) {
   const reviewable = canReviewItems(part);
   return (
     <Card>
@@ -77,7 +68,7 @@ function SellerPart({
         {part.cancelReason && (
           <p className="text-sm text-muted-foreground">Cancelled: {part.cancelReason}</p>
         )}
-        {dispute && <DisputeNote dispute={dispute} />}
+        {part.dispute && <DisputeNote dispute={part.dispute} />}
         <div className="flex flex-wrap gap-2">
           {canConfirmDelivery(part) && (
             <ConfirmDeliveryButton orderId={order.id} sellerOrderId={part.id} />
@@ -89,7 +80,7 @@ function SellerPart({
               storeName={part.storeName}
             />
           )}
-          {canOpenDispute(order, part, dispute) && (
+          {canOpenDispute(order, part) && (
             <OpenDisputeDialog
               orderId={order.id}
               sellerOrderId={part.id}
@@ -105,15 +96,12 @@ function SellerPart({
 export function OrderPage() {
   const { id } = useParams();
   const order = useOrder(id);
-  const disputes = useMyDisputes();
   const connection = useConnectionStatus();
 
   if (order.isPending) return <LoadingState rows={4} label="Loading order" />;
   if (order.isError) return <ErrorState error={order.error} onRetry={() => void order.refetch()} />;
 
   const data = order.data;
-  const disputeFor = (sellerOrderId: string) =>
-    disputes.data?.items.find((dispute) => dispute.sellerOrderId === sellerOrderId);
 
   return (
     <div className="space-y-4">
@@ -151,7 +139,7 @@ export function OrderPage() {
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <div className="space-y-4">
           {data.sellerOrders.map((part) => (
-            <SellerPart key={part.id} order={data} part={part} dispute={disputeFor(part.id)} />
+            <SellerPart key={part.id} order={data} part={part} />
           ))}
         </div>
         <aside>
