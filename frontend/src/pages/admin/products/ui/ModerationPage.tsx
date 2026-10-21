@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router';
-import { ProductImage, useModerationQueue } from '@/entities/product';
+import { useModerationQueue } from '@/entities/product';
+import { ProductImage } from '@/shared/ui/product-image';
 import { ModerationActions } from '@/features/moderate';
 import { ReindexButton } from '@/features/reindex-search';
 import type { ProductStatus } from '@/shared/api';

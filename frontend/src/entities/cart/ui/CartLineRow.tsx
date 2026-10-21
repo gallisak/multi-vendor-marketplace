@@ -1,7 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { Link } from 'react-router';
 import { Price } from '@/shared/ui/price';
-import { ProductImage } from '@/entities/product';
+import { ProductImage } from '@/shared/ui/product-image';
 import { QuantityStepper } from '@/shared/ui/quantity-stepper';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';

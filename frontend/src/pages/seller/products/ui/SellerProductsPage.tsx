@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router';
-import { ProductImage, useLiveProduct } from '@/entities/product';
+import { useLiveProduct } from '@/entities/product';
+import { ProductImage } from '@/shared/ui/product-image';
 import { useSellerProducts } from '@/entities/seller';
 import { ArchiveProductDialog, StockDialog } from '@/features/manage-product';
 import type { ProductStatus, SellerProduct } from '@/shared/api';

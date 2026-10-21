@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import type { Application } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { CORRELATION_HEADER } from './common/correlation.js';
@@ -12,6 +13,10 @@ export function setupApp(app: INestApplication) {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.useLogger(app.get(Logger));
+  const trustProxy = config.get('TRUST_PROXY', { infer: true });
+  if (trustProxy > 0) {
+    (app.getHttpAdapter().getInstance() as Application).set('trust proxy', trustProxy);
+  }
   app.setGlobalPrefix('api', { exclude: ['health', 'health/ready', 'metrics'] });
   app.use(helmet());
   app.use(cookieParser());

@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { useSalesChart } from '@/entities/analytics';
+import { useSalesChart } from '@/entities/sales-report';
 import { formatMoney } from '@/shared/lib';
 import { Button } from '@/shared/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';

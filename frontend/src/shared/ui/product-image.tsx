@@ -1,5 +1,5 @@
 import { Package } from 'lucide-react';
-import { cn } from '@/shared/lib';
+import { cn } from '@/shared/lib/utils';
 
 export function ProductImage({
   src,

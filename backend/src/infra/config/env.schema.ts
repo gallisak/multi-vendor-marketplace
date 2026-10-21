@@ -20,6 +20,7 @@ export const envSchema = z
     FRONTEND_URL: z.url().default('http://localhost:5173'),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
     LOGIN_IP_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(20),
+    TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 
     DATABASE_URL: z.url(),
     REDIS_URL: z.url(),

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "format": "prettier --write src",
+    "format:check": "prettier --check src",
     "typecheck": "tsc -b --noEmit",
     "lint:fsd": "steiger ./src"
   },

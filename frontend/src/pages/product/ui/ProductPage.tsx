@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router';
-import { ProductImage, useLiveProduct, useProduct, withLiveProduct } from '@/entities/product';
+import { useLiveProduct, useProduct, withLiveProduct } from '@/entities/product';
+import { ProductImage } from '@/shared/ui/product-image';
 import { AddToCart } from '@/features/add-to-cart';
 import { Rating } from '@/shared/ui/rating';
 import { ErrorState, LoadingState } from '@/shared/ui/states';

@@ -4,7 +4,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Card, CardContent } from '@/shared/ui/card';
 import { timeLeft } from '@/shared/lib';
 import { Price } from '@/shared/ui/price';
-import { ProductImage } from './ProductImage';
+import { ProductImage } from '@/shared/ui/product-image';
 import { Rating } from '@/shared/ui/rating';
 
 export interface ProductCardData {

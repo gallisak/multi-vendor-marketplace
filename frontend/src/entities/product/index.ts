@@ -8,4 +8,3 @@ export { withLiveProduct } from './lib/with-live-product';
 export type { CatalogFilters, CatalogSort } from './model/catalog-filters';
 export { useLiveProduct } from './model/use-live-product';
 export { ProductCard, type ProductCardData } from './ui/ProductCard';
-export { ProductImage } from './ui/ProductImage';

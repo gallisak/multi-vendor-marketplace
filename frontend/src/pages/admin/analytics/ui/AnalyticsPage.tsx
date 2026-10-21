@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router';
-import { useAnalyticsSummary } from '@/entities/analytics';
+import { useAnalyticsSummary } from '@/entities/sales-report';
 import { ExportButtons } from '@/features/export-report';
 import { formatMoney } from '@/shared/lib';
 import { Input } from '@/shared/ui/input';

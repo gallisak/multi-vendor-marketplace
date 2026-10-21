@@ -8,6 +8,7 @@ x-backend-env: &backend-env
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
   RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-300}
   LOGIN_IP_RATE_LIMIT_PER_MINUTE: ${LOGIN_IP_RATE_LIMIT_PER_MINUTE:-20}
+  TRUST_PROXY: ${TRUST_PROXY:-1}
   DATABASE_URL: postgresql://${POSTGRES_USER:-mvm}:${POSTGRES_PASSWORD:-mvm}@postgres:5432/${POSTGRES_DB:-mvm}
   REDIS_URL: redis://redis:6379
   MEILI_HOST: http://meilisearch:7700
@@ -23,7 +24,7 @@ x-backend-env: &backend-env
   REFRESH_ROTATION_GRACE_SECONDS: ${REFRESH_ROTATION_GRACE_SECONDS:-10}
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-  GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3001/api/auth/google/callback}
+  GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:5173/api/auth/google/callback}
   CATALOG_CACHE_TTL_SECONDS: ${CATALOG_CACHE_TTL_SECONDS:-60}
   CATALOG_LIST_CACHE_TTL_SECONDS: ${CATALOG_LIST_CACHE_TTL_SECONDS:-10}
   PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT:-10}
@@ -86,8 +87,10 @@ services:
     build:
       context: ./backend
       target: migrate
+    command: ['sh', '-c', 'npx prisma migrate deploy && if [ "$$SEED_DEMO_DATA" = "true" ]; then npx prisma db seed; fi']
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-mvm}:${POSTGRES_PASSWORD:-mvm}@postgres:5432/${POSTGRES_DB:-mvm}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,7 +104,7 @@ services:
       <<: *backend-env
       API_PORT: 3000
     ports:
-      - '${API_PORT:-3001}:3000'
+      - '127.0.0.1:${API_PORT:-3001}:3000'
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
@@ -116,6 +119,16 @@ services:
       redis:
         condition: service_healthy
       meilisearch:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+    ports:
+      - '${WEB_PORT:-5173}:80'
+    restart: unless-stopped
+    depends_on:
+      api:
         condition: service_healthy
 
   worker:

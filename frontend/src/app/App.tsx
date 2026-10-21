@@ -1,5 +1,5 @@
 import { RouterProvider } from 'react-router';
-import { AppProviders } from './providers/AppProviders';
+import { AppProviders } from './runtime/AppProviders';
 import { router } from './router/router';
 import './styles/index.css';
 
