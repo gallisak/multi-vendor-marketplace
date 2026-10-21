@@ -1,0 +1,35 @@
+{
+  "scenario": "bids",
+  "setup": {
+    "productId": "01a15ef1-d9c4-76cd-924c-ecd142c7a132"
+  },
+  "requests": 14955,
+  "rps": 457.9008956645072,
+  "p95Ms": 176.70381249999994,
+  "p99Ms": 250.84866932,
+  "medianMs": 95.145667,
+  "unexpectedErrors": 0,
+  "custom": {
+    "bids_latency": {
+      "p(95)": 197.73226684999997,
+      "p(99)": 275.06963449999995,
+      "avg": 119.48281464496627,
+      "min": 32.213917,
+      "med": 111.796646,
+      "max": 336.053666,
+      "p(90)": 168.15615420000003
+    },
+    "bids_accepted": {
+      "count": 276,
+      "rate": 8.450728666225608
+    },
+    "bids_rejected_already_leading": {
+      "count": 92,
+      "rate": 2.8169095554085364
+    },
+    "bids_rejected_too_low": {
+      "count": 7082,
+      "rate": 216.84079860220928
+    }
+  }
+}
