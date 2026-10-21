@@ -6,5 +6,6 @@ export {
   canReviewItems,
   isPaid,
 } from './lib/buyer-actions';
+export { netCommission } from './lib/seller-money';
 export { OrderItemsTable } from './ui/OrderItemsTable';
 export { SellerOrderSteps } from './ui/SellerOrderSteps';

@@ -11,10 +11,18 @@ import { NotificationsPage } from '@/pages/notifications';
 import { OAuthCallbackPage } from '@/pages/oauth-callback';
 import { ProductPage } from '@/pages/product';
 import { RegisterPage } from '@/pages/register';
+import { SellerDashboardPage } from '@/pages/seller-dashboard';
+import { SellerDisputesPage } from '@/pages/seller-disputes';
+import { SellerOrderPage } from '@/pages/seller-order';
+import { SellerOrdersPage } from '@/pages/seller-orders';
+import { SellerPayoutsPage } from '@/pages/seller-payouts';
+import { EditProductPage, NewProductPage } from '@/pages/seller-product-form';
+import { SellerProductsPage } from '@/pages/seller-products';
 import type { Role } from '@/shared/api';
 import { EmptyState } from '@/shared/ui/states';
 import { AccountLayout } from '../layouts/AccountLayout';
 import { AppLayout } from '../layouts/AppLayout';
+import { SellerLayout } from '../layouts/SellerLayout';
 import { RequireAuth } from './RequireAuth';
 
 const BUYERS: Role[] = ['CUSTOMER', 'SELLER'];
@@ -40,6 +48,20 @@ export const router = createBrowserRouter([
           { path: 'disputes', element: guard(<DisputesPage />, BUYERS) },
           { path: 'notifications', element: <NotificationsPage /> },
           { path: 'become-seller', element: guard(<BecomeSellerPage />, ['CUSTOMER', 'SELLER']) },
+        ],
+      },
+      {
+        path: 'seller',
+        element: guard(<SellerLayout />, ['SELLER']),
+        children: [
+          { index: true, element: <SellerDashboardPage /> },
+          { path: 'products', element: <SellerProductsPage /> },
+          { path: 'products/new', element: <NewProductPage /> },
+          { path: 'products/:id/edit', element: <EditProductPage /> },
+          { path: 'orders', element: <SellerOrdersPage /> },
+          { path: 'orders/:id', element: <SellerOrderPage /> },
+          { path: 'disputes', element: <SellerDisputesPage /> },
+          { path: 'payouts', element: <SellerPayoutsPage /> },
         ],
       },
       { path: 'login', element: <LoginPage /> },

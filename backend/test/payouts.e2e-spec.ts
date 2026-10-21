@@ -209,4 +209,44 @@ describe('Seller payouts (e2e)', () => {
     expect(res.body.revenue.allTime).toMatchObject({ payoutMinor: 54_000 });
     expect(res.body.payouts).toEqual({ pendingMinor: 0, paidOutMinor: 54_000 });
   });
+
+  it('leaves sales out of the pending balance until the payment is captured', async () => {
+    const otherSeller = await createActor(app, prisma, Role.SELLER);
+    const buyer = await createActor(app, prisma, Role.CUSTOMER);
+    const product = await prisma.product.create({
+      data: {
+        sellerId: otherSeller.sellerId!,
+        categoryId,
+        title: `Payout ${uniqueSlug('p')}`,
+        description: 'Payout test product',
+        priceMinor: 10_000,
+        stock: 5,
+        status: ProductStatus.ACTIVE,
+      },
+    });
+    await http()
+      .put(`/api/cart/items/${product.id}`)
+      .set(bearer(buyer.token))
+      .send({ quantity: 1 })
+      .expect(200);
+    const res = await http()
+      .post('/api/orders/checkout')
+      .set(bearer(buyer.token))
+      .set('Idempotency-Key', randomUUID())
+      .send({})
+      .expect(201);
+    const orderId = res.body.id as string;
+    await vi.waitFor(async () => {
+      const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+      expect(order.paymentStatus).toBe('CAPTURED');
+    }, WAIT);
+    const balance = () =>
+      http().get('/api/seller/payouts').set(bearer(otherSeller.token)).expect(200);
+
+    await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'PENDING' } });
+    expect((await balance()).body).toMatchObject({ pendingMinor: 0, paidOutMinor: 0 });
+
+    await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'CAPTURED' } });
+    expect((await balance()).body).toMatchObject({ pendingMinor: 9_000, paidOutMinor: 0 });
+  });
 });

@@ -16,3 +16,5 @@ export function toMinor(major: string | number): number {
 export function toMajor(minor: number): string {
   return (minor / 100).toFixed(2);
 }
+
+export const MONEY_PATTERN = /^\d+([.,]\d{1,2})?$/;
