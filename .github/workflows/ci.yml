@@ -115,6 +115,8 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Build Storybook
+        run: npm run build-storybook
 
   docker:
     name: Docker images

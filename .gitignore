@@ -16,3 +16,4 @@ coverage/
 *.log
 
 backend/src/generated/
+storybook-static/
