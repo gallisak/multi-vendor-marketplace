@@ -77,12 +77,18 @@ async function main() {
   const books = await prisma.category.create({ data: { name: 'Books', slug: 'books' } });
   await prisma.category.create({ data: { name: 'Home', slug: 'home' } });
 
+  const images = (seed: string) => [
+    `https://picsum.photos/seed/${seed}/800/800`,
+    `https://picsum.photos/seed/${seed}-2/800/800`,
+  ];
+
   await prisma.product.createMany({
     data: [
       {
         sellerId: techStore.id,
         categoryId: phones.id,
         title: 'Smartphone X12 128GB',
+        imageUrls: images('smartphone-x12-128gb'),
         description: '6.1" OLED display, dual camera',
         priceMinor: 1_899_900,
         stock: 5,
@@ -92,6 +98,7 @@ async function main() {
         sellerId: techStore.id,
         categoryId: laptops.id,
         title: 'Ultrabook Air 14',
+        imageUrls: images('ultrabook-air-14'),
         description: '14" laptop, 16GB RAM, 512GB SSD',
         priceMinor: 4_299_900,
         stock: 2,
@@ -101,6 +108,7 @@ async function main() {
         sellerId: techStore.id,
         categoryId: phones.id,
         title: 'Phone case X12',
+        imageUrls: images('phone-case-x12'),
         description: 'Silicone case',
         priceMinor: 39_900,
         stock: 50,
@@ -110,6 +118,7 @@ async function main() {
         sellerId: bookCorner.id,
         categoryId: books.id,
         title: 'Designing Data-Intensive Applications',
+        imageUrls: images('designing-data-intensive-applications'),
         description: 'Martin Kleppmann',
         priceMinor: 159_900,
         stock: 10,
@@ -119,6 +128,7 @@ async function main() {
         sellerId: bookCorner.id,
         categoryId: books.id,
         title: 'Clean Architecture',
+        imageUrls: images('clean-architecture'),
         description: 'Robert C. Martin',
         priceMinor: 99_900,
         stock: 1,
@@ -141,6 +151,7 @@ async function main() {
         categoryId,
         title,
         description: `Auction lot: ${title}`,
+        imageUrls: images(title.toLowerCase().replace(/[^a-z0-9]+/g, '-')),
         type: ProductType.AUCTION,
         priceMinor: startPriceMinor,
         stock: 1,
