@@ -86,7 +86,7 @@ export class PaymentsService {
       );
     });
 
-    if (result.ok && !settled) {
+    if (result.ok && !settled && (await this.expiredBeforeCharge(orderId))) {
       await this.voidLateCharge(orderId, payment.amountMinor, result.providerRef);
     }
   }
@@ -119,6 +119,11 @@ export class PaymentsService {
       await this.lifecycle.cancel(tx, sellerOrder.id, PAYMENT_FAILED_REASON);
     }
     await this.outbox.add(tx, paymentFailed({ orderId, buyerId: order.buyerId, reason }));
+  }
+
+  private async expiredBeforeCharge(orderId: string) {
+    const current = await this.payments.findByOrder(orderId);
+    return current?.status === PaymentStatus.FAILED;
   }
 
   private async voidLateCharge(orderId: string, amountMinor: bigint, providerRef: string) {
