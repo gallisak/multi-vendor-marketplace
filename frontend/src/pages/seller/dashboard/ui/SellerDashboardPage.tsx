@@ -90,7 +90,7 @@ export function SellerDashboardPage() {
           <StatTile
             label="Payouts"
             value={formatMoney(payouts.pendingMinor)}
-            hint={`pending · ${formatMoney(payouts.paidOutMinor)} paid out`}
+            hint={`pending · ${formatMoney(payouts.inTransitMinor)} in transit · ${formatMoney(payouts.paidOutMinor)} paid out`}
           />
         </div>
         <p className="text-xs text-muted-foreground">

@@ -22,6 +22,10 @@ export class CartRepository extends PrismaRepository {
     });
   }
 
+  async lockCart(userId: string, tx: Transaction) {
+    await tx.$queryRaw`SELECT id FROM carts WHERE user_id = ${userId}::uuid FOR UPDATE`;
+  }
+
   findItemsForCheckout(userId: string, tx: Transaction) {
     return tx.cartItem.findMany({
       where: { cart: { userId } },

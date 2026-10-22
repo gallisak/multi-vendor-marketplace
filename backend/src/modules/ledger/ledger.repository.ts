@@ -76,15 +76,21 @@ export class LedgerRepository extends PrismaRepository {
   }
 
   async balances(sellerId: string) {
-    const [row] = await this.prisma.$queryRaw<{ pending: bigint; paidOut: bigint }[]>`
+    const [row] = await this.prisma.$queryRaw<
+      { pending: bigint; inTransit: bigint; paidOut: bigint }[]
+    >`
       SELECT
         COALESCE(SUM(l.amount_minor) FILTER (
           WHERE l.type <> 'PAYOUT' AND l.payout_id IS NULL
             AND (l.seller_order_id IS NULL
               OR o.payment_status IN ('CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED'))), 0)::bigint
           AS pending,
-        COALESCE(-SUM(l.amount_minor) FILTER (WHERE l.type = 'PAYOUT'), 0)::bigint AS "paidOut"
+        COALESCE(-SUM(l.amount_minor) FILTER (
+          WHERE l.type = 'PAYOUT' AND p.status = 'PENDING'), 0)::bigint AS "inTransit",
+        COALESCE(-SUM(l.amount_minor) FILTER (
+          WHERE l.type = 'PAYOUT' AND p.status = 'PAID'), 0)::bigint AS "paidOut"
       FROM ledger_entries l
+      LEFT JOIN payouts p ON p.id = l.payout_id
       LEFT JOIN seller_orders so ON so.id = l.seller_order_id
       LEFT JOIN orders o ON o.id = so.order_id
       WHERE l.seller_id = ${sellerId}::uuid`;

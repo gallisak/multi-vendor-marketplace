@@ -25,8 +25,9 @@ export function SellerPayoutsPage() {
         <ErrorState error={payouts.error} onRetry={() => void payouts.refetch()} />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <StatTile label="Pending" value={formatMoney(payouts.data.pendingMinor)} />
+            <StatTile label="In transit" value={formatMoney(payouts.data.inTransitMinor)} />
             <StatTile label="Paid out" value={formatMoney(payouts.data.paidOutMinor)} />
           </div>
           {payouts.data.items.length === 0 ? (

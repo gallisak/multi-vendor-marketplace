@@ -26,6 +26,8 @@ export class PayoutDto {
 
 export class SellerPayoutsDto {
   @ApiProperty({ description: 'Earned but not paid out yet' }) pendingMinor: number;
+  @ApiProperty({ description: 'Booked payouts the provider has not confirmed yet' })
+  inTransitMinor: number;
   @ApiProperty() paidOutMinor: number;
   @ApiProperty({ type: [PayoutDto] }) items: PayoutDto[];
   @ApiProperty() total: number;

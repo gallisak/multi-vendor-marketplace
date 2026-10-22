@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { DomainEventPayloads } from '../../common/events/domain-events.js';
 import { IdempotentConsumerService } from '../../infra/outbox/idempotent-consumer.service.js';
 import { openCommission } from '../ledger/ledger.rules.js';
-import { commissionFor, lineTotal } from '../orders/pricing.js';
+import { lineTotal } from '../orders/pricing.js';
 import { startOfUtcDay } from './analytics.rules.js';
 import { SalesDailyRepository } from './sales-daily.repository.js';
 
@@ -31,8 +31,9 @@ export class SalesProjectionService {
       const order = await this.sales.paidOrder(orderId, tx);
       const day = startOfUtcDay(order.createdAt);
       for (const sellerOrder of order.sellerOrders) {
-        for (const item of sellerOrder.items) {
-          const gross = lineTotal(item);
+        const grosses = sellerOrder.items.map((item) => lineTotal(item));
+        const commissions = allocate(sellerOrder.commissionMinor, grosses);
+        for (const [index, item] of sellerOrder.items.entries()) {
           await this.sales.apply(
             {
               day,
@@ -40,8 +41,8 @@ export class SalesProjectionService {
               productId: item.productId,
               ordersCount: 1,
               unitsSold: item.quantity,
-              grossMinor: gross,
-              commissionMinor: commissionFor(gross, sellerOrder.commissionRateBps),
+              grossMinor: grosses[index],
+              commissionMinor: commissions[index],
             },
             tx,
           );

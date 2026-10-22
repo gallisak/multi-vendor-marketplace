@@ -86,7 +86,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
   - Once a lot has bids, the seller can no longer edit its content or archive it.
 - **Reviews:** only buyers whose sub-order is completed can leave one.
 - **Disputes:** resolved by an admin. A buyer win refunds everything not yet refunded.
-- **Payouts:** go out after a hold period, only for completed sub-orders without an open dispute. The payout is booked in the ledger in one transaction together with a `payout.requested` event; the transfer to the provider happens afterwards in the worker, keyed by the payout id, so a slow or failing provider never holds a database transaction open and a retry never pays twice. The payout stays `PENDING` until the provider confirms it.
+- **Payouts:** go out after a hold period, only for completed sub-orders without an open dispute. The payout is booked in the ledger in one transaction together with a `payout.requested` event; the transfer to the provider happens afterwards in the worker, keyed by the payout id, so a slow or failing provider never holds a database transaction open and a retry never pays twice. The payout stays `PENDING` (shown to the seller as "in transit") until the provider confirms it.
 
 ## Reliability
 
@@ -124,8 +124,8 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 
 | Suite                                             | Count |
 | ------------------------------------------------- | ----- |
-| Backend unit                                      | 313   |
-| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 155   |
+| Backend unit                                      | 314   |
+| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 156   |
 | Frontend (Vitest + Testing Library)               | 38    |
 | Storybook stories                                 | 33    |
 

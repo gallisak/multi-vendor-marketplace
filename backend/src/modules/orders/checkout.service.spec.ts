@@ -91,6 +91,7 @@ function setup(
     ),
   };
   const cartRepository = {
+    lockCart: vi.fn(() => Promise.resolve()),
     findItemsForCheckout: vi.fn(() =>
       Promise.resolve(
         cart.map(([productId, quantity]) => cartItem(productId, warehouse[productId], quantity)),

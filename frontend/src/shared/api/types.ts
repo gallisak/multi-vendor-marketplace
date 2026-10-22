@@ -320,7 +320,7 @@ export interface SalesChart {
 
 export interface SellerDashboard {
   revenue: { last30Days: MoneyTotals; allTime: MoneyTotals };
-  payouts: { pendingMinor: number; paidOutMinor: number };
+  payouts: { pendingMinor: number; inTransitMinor: number; paidOutMinor: number };
   sellerOrders: Partial<Record<SellerOrderStatus, number>>;
   auctions: {
     productId: string;
@@ -355,5 +355,6 @@ export interface Payout {
 
 export interface SellerPayouts extends Page<Payout> {
   pendingMinor: number;
+  inTransitMinor: number;
   paidOutMinor: number;
 }

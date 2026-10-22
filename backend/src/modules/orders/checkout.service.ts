@@ -111,6 +111,7 @@ export class CheckoutService {
   }
 
   private async placeOrder(tx: Transaction, buyerId: string, dto: CheckoutDto): Promise<OrderDto> {
+    await this.cart.lockCart(buyerId, tx);
     const items = await this.cart.findItemsForCheckout(buyerId, tx);
     if (items.length === 0) {
       throw new BadRequestException('Cart is empty');

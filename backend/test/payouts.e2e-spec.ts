@@ -220,7 +220,7 @@ describe('Seller payouts (e2e)', () => {
     const res = await http().get('/api/seller/dashboard').set(bearer(seller.token)).expect(200);
 
     expect(res.body.revenue.allTime).toMatchObject({ payoutMinor: 54_000 });
-    expect(res.body.payouts).toEqual({ pendingMinor: 0, paidOutMinor: 54_000 });
+    expect(res.body.payouts).toEqual({ pendingMinor: 0, inTransitMinor: 0, paidOutMinor: 54_000 });
   });
 
   it('books the payout first and retries the transfer until the provider accepts it', async () => {
@@ -250,7 +250,12 @@ describe('Seller payouts (e2e)', () => {
         return payout;
       }, WAIT);
       const pending = await http().get('/api/seller/payouts').set(bearer(owner.token)).expect(200);
-      expect(pending.body).toMatchObject({ pendingMinor: 0, paidOutMinor: 9_000, total: 1 });
+      expect(pending.body).toMatchObject({
+        pendingMinor: 0,
+        inTransitMinor: 9_000,
+        paidOutMinor: 0,
+        total: 1,
+      });
       expect(pending.body.items[0]).toMatchObject({ status: 'PENDING', providerRef: null });
 
       providerDown();
@@ -262,6 +267,8 @@ describe('Seller payouts (e2e)', () => {
           providerRef: `mock_transfer_${booked.id}`,
         });
       }, WAIT);
+      const settled = await http().get('/api/seller/payouts').set(bearer(owner.token)).expect(200);
+      expect(settled.body).toMatchObject({ inTransitMinor: 0, paidOutMinor: 9_000 });
       const calls = gateway.transfer.mock.calls.filter(([req]) => req.sellerId === owner.sellerId);
       expect(calls.map(([req]) => req.idempotencyKey)).toEqual([booked.id, booked.id]);
       expect(await prisma.payout.count({ where: { sellerId: owner.sellerId! } })).toBe(1);
