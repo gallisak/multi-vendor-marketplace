@@ -163,12 +163,7 @@ export class RefundsService {
     const fullyRefunded =
       sellerOrder.refundedMinor + calculation.amountMinor >= sellerOrder.subtotalMinor;
     if (fullyRefunded && NOT_SHIPPED.includes(sellerOrder.status)) {
-      await this.lifecycle.transition(
-        tx,
-        sellerOrderId,
-        SellerOrderStatus.CANCELLED,
-        FULLY_REFUNDED_REASON,
-      );
+      await this.lifecycle.cancel(tx, sellerOrderId, FULLY_REFUNDED_REASON);
     }
 
     this.logger.log(

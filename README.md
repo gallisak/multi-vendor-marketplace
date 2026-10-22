@@ -125,7 +125,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 | Suite                                             | Count |
 | ------------------------------------------------- | ----- |
 | Backend unit                                      | 314   |
-| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 156   |
+| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 158   |
 | Frontend (Vitest + Testing Library)               | 38    |
 | Storybook stories                                 | 33    |
 

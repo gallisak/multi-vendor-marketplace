@@ -473,6 +473,23 @@ describe('Auctions (e2e)', () => {
       expect(Math.abs(auction.startsAt.getTime() - Date.now())).toBeLessThan(60_000);
     });
 
+    it('refuses to approve a lot that would end in less than five minutes', async () => {
+      const admin = await createActor(app, prisma, Role.ADMIN);
+      const { productId, auctionId } = await createLot(ProductStatus.PENDING_MODERATION);
+      await prisma.auction.update({
+        where: { id: auctionId },
+        data: { endsAt: new Date(Date.now() + 60_000) },
+      });
+
+      await http()
+        .post(`/api/admin/products/${productId}/approve`)
+        .set(bearer(admin.token))
+        .expect(409);
+      expect((await prisma.product.findUniqueOrThrow({ where: { id: productId } })).status).toBe(
+        'PENDING_MODERATION',
+      );
+    });
+
     it('puts the lot back on sale when the winning order is not paid', async () => {
       const winner = await createActor(app, prisma, Role.CUSTOMER);
       const { productId, auctionId } = await createLot();
@@ -503,6 +520,41 @@ describe('Auctions (e2e)', () => {
         expect(await notificationsOf(winner, productId)).not.toContain('auction.checkout_expired');
       }, WAIT);
       await bid(winner, productId, START).expect(201);
+    });
+
+    it('puts the lot back on sale when the seller refunds the unshipped winning order', async () => {
+      const winner = await createActor(app, prisma, Role.CUSTOMER);
+      const { productId, auctionId } = await createLot();
+      await bid(winner, productId, START).expect(201);
+      await endNow(auctionId);
+      await waitForStatus(auctionId, 'AWAITING_CHECKOUT');
+
+      const order = await http()
+        .post(`/api/auctions/${productId}/checkout`)
+        .set(bearer(winner.token))
+        .set('Idempotency-Key', randomUUID())
+        .expect(201);
+      await vi.waitFor(async () => {
+        const stored = await prisma.order.findUniqueOrThrow({ where: { id: order.body.id } });
+        expect(stored.paymentStatus).toBe('CAPTURED');
+      }, WAIT);
+
+      const part = order.body.sellerOrders[0];
+      await http()
+        .post(`/api/seller/orders/${part.id}/refunds`)
+        .set(bearer(seller.token))
+        .set('Idempotency-Key', randomUUID())
+        .send({ orderItemId: part.items[0].id, quantity: 1 })
+        .expect(201);
+
+      expect(await prisma.sellerOrder.findUniqueOrThrow({ where: { id: part.id } })).toMatchObject({
+        status: 'CANCELLED',
+      });
+      expect(await auctionOf(auctionId)).toMatchObject({ status: 'ACTIVE', bidCount: 0 });
+      expect(await prisma.product.findUniqueOrThrow({ where: { id: productId } })).toMatchObject({
+        status: 'ACTIVE',
+        stock: 1,
+      });
     });
   });
 });

@@ -6,6 +6,7 @@ import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { toSellerProductDto } from './product.mapper.js';
 import type { SellerProductsQueryDto } from './products.dto.js';
+import { auctionWindowError } from './product.rules.js';
 import { ProductsRepository } from './products.repository.js';
 
 @Injectable()
@@ -28,8 +29,10 @@ export class ProductModerationService {
 
   async approve(productId: string, adminId: string) {
     const product = await this.findPending(productId);
-    if (product.auction && product.auction.endsAt <= new Date()) {
-      throw new ConflictException('Auction end date has already passed');
+    if (product.auction && auctionWindowError(product.auction.endsAt)) {
+      throw new ConflictException(
+        'Auction ends in less than 5 minutes, the seller has to set a later end date',
+      );
     }
     await this.transition(productId, ProductStatus.ACTIVE, null);
     this.logger.log({ productId, adminId }, 'Product approved');
