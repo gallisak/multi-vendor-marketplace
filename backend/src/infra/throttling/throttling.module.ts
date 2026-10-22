@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule, type ThrottlerModuleOptions } from '@nestjs/throttler';
 import type { Env } from '../config/env.schema.js';
 import {
+  bidUserTracker,
   isBidRequest,
   isLoginRequest,
   loginEmailTracker,
@@ -57,6 +58,13 @@ class ThrottlerStorageModule {}
             ttl: MINUTE,
             limit: config.get('BID_RATE_LIMIT_PER_MINUTE', { infer: true }),
             skipIf: notBid,
+          },
+          {
+            name: 'bid-user',
+            ttl: MINUTE,
+            limit: config.get('BID_USER_RATE_LIMIT_PER_MINUTE', { infer: true }),
+            skipIf: notBid,
+            getTracker: (req) => bidUserTracker(req as TrackedRequest),
           },
         ],
         storage,

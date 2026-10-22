@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
 
-export type TrackedRequest = Pick<Request, 'ip' | 'ips' | 'body'>;
+export type TrackedRequest = Pick<Request, 'ip' | 'ips' | 'body'> & { user?: { id: string } };
 
 export function clientIp(req: Pick<Request, 'ip' | 'ips'>): string {
   return req.ips.length ? req.ips[0] : (req.ip ?? 'unknown');
@@ -29,4 +29,8 @@ export function isBidRequest(context: ExecutionContext): boolean {
   }
   const req = context.switchToHttp().getRequest<Request>();
   return req.method === 'POST' && BID_PATH.test(req.path);
+}
+
+export function bidUserTracker(req: TrackedRequest): string {
+  return req.user ? `user:${req.user.id}` : `ip:${clientIp(req)}`;
 }

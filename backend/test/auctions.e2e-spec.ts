@@ -1,7 +1,9 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { ProductStatus, ProductType, Role } from '../src/generated/prisma/enums.js';
+import type { Env } from '../src/infra/config/env.schema.js';
 import { PrismaService } from '../src/infra/prisma/prisma.service.js';
 import {
   bearer,
@@ -146,6 +148,25 @@ describe('Auctions (e2e)', () => {
       expect(retry.body).toEqual(first.body);
       expect(await prisma.bid.count({ where: { auctionId } })).toBe(1);
       await bid(buyer, productId, START + STEP, key).expect(422);
+    });
+
+    it('limits bids per user, not only per ip', async () => {
+      const limit = app
+        .get(ConfigService<Env, true>)
+        .get('BID_USER_RATE_LIMIT_PER_MINUTE', { infer: true });
+      const [eager, other] = await Promise.all([
+        createActor(app, prisma, Role.CUSTOMER),
+        createActor(app, prisma, Role.CUSTOMER),
+      ]);
+      const { productId } = await createLot();
+
+      for (let attempt = 0; attempt < limit; attempt++) {
+        await bid(eager, productId, START + attempt * STEP);
+      }
+      const blocked = await bid(eager, productId, START + limit * STEP).expect(429);
+      expect(blocked.headers['retry-after-bid-user']).toBeDefined();
+
+      await bid(other, productId, START + (limit + 1) * STEP).expect(201);
     });
 
     it('hides lots that are not approved yet', async () => {
