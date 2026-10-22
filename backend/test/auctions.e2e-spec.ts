@@ -205,6 +205,29 @@ describe('Auctions (e2e)', () => {
       await bid(buyer, productId, START).expect(409);
       expect(await prisma.bid.count({ where: { auctionId } })).toBe(0);
     });
+
+    it('rejects a bid that waited behind a concurrent bid until after the deadline', async () => {
+      const buyer = await createActor(app, prisma, Role.CUSTOMER);
+      const { productId, auctionId } = await createLot();
+      const endsAt = new Date(Date.now() + 1_500);
+      await prisma.auction.update({ where: { id: auctionId }, data: { endsAt } });
+
+      let locked!: () => void;
+      const lockTaken = new Promise<void>((resolve) => (locked = resolve));
+      const blocker = prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`UPDATE auctions SET version = version + 1 WHERE id = ${auctionId}::uuid`;
+          locked();
+          await new Promise((resolve) => setTimeout(resolve, endsAt.getTime() - Date.now() + 500));
+        },
+        { timeout: 10_000 },
+      );
+      await lockTaken;
+
+      const late = bid(buyer, productId, START);
+      await Promise.all([blocker, late.expect(409)]);
+      expect(await prisma.bid.count({ where: { auctionId } })).toBe(0);
+    });
   });
 
   describe('closing', () => {

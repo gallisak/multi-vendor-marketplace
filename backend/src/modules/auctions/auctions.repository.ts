@@ -17,7 +17,7 @@ const LOT_OWNER = {
 @Injectable()
 export class AuctionsRepository extends PrismaRepository {
   async now(tx?: Transaction) {
-    const [{ now }] = await this.db(tx).$queryRaw<{ now: Date }[]>`SELECT now() AS now`;
+    const [{ now }] = await this.db(tx).$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
     return now;
   }
 
@@ -42,7 +42,7 @@ export class AuctionsRepository extends PrismaRepository {
       WHERE id = ${bid.auctionId}::uuid
         AND version = ${bid.version}
         AND status = 'ACTIVE'
-        AND ends_at > now()
+        AND ends_at > clock_timestamp()
       RETURNING bid_count AS "bidCount", ends_at AS "endsAt"`;
     return updated;
   }
