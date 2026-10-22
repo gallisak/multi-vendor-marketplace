@@ -28,7 +28,26 @@ Configuration lives in `.env` / `.env.<NODE_ENV>` (`.env.example`, `.env.test.ex
 
 ## Architecture
 
-Request flow: browser → nginx → `api` → PostgreSQL (data + outbox in one transaction) → `worker` relays the outbox to BullMQ → consumers update Meilisearch, the Redis cache, analytics, notifications and push WebSocket updates back through `api`.
+```mermaid
+flowchart LR
+    browser[Browser<br/>React SPA] -->|HTTP + WebSocket| nginx
+    nginx -->|/api, /socket.io| api
+    api -->|data + outbox<br/>one transaction| pg[(PostgreSQL)]
+    api -->|cache, rate limits| redis[(Redis)]
+    api -->|search| meili[(Meilisearch)]
+    api -. fallback when search is down .-> pg
+    worker -->|relay outbox<br/>SKIP LOCKED| pg
+    worker -->|jobId = eventId| bull[[BullMQ on Redis]]
+    bull --> consumers[Consumers in worker]
+    consumers -->|index| meili
+    consumers -->|invalidate cache| redis
+    consumers -->|payments, ledger,<br/>analytics, notifications| pg
+    consumers -->|Socket.IO Redis adapter| api
+    api -->|pushes| browser
+    consumers -->|charge, refund, payout| gw[Payment and payout gateways]
+```
+
+A write goes to PostgreSQL together with its outbox event in one transaction. The worker relays events to BullMQ, and consumers update search, cache, analytics and notifications, call the payment gateways and push WebSocket updates to browsers through the Redis adapter.
 
 A modular monolith running as two processes from one codebase: `api` serves HTTP and WebSocket, `worker` does all background work. They scale independently without microservice overhead.
 
@@ -60,7 +79,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 - **Cancelling one SellerOrder:** restocks its items and refunds the buyer. Its commission is reversed in the ledger. Other sub-orders are untouched.
 - **Partial refunds per item:** commission is reversed proportionally. The final refund settles the exact remainder, so rounding never leaves a leftover.
 - **Auctions:**
-  - A bid must be at least the current price plus the bid step, placed before the deadline (checked against database time).
+  - A bid must be at least the current price plus the bid step, placed before the deadline. The deadline is checked against the database clock (`clock_timestamp()`, not the transaction start time `now()`), so a bid that waited behind a concurrent one past the deadline is rejected.
   - A background sweeper closes expired auctions as sold to the winner or unsold.
   - The winner gets a checkout window; if it expires, the lot is relisted.
   - Once a lot has bids, the seller can no longer edit its content or archive it.
@@ -72,7 +91,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 
 - **Transactional outbox:** events are written in the same transaction as the change. The worker relays them with `FOR UPDATE SKIP LOCKED` to BullMQ using `jobId = eventId`, with backoff while Redis is down.
 - **Idempotent consumers:** `(consumer, event_id)` is inserted into `processed_events` in the same transaction as the side effect, so at-least-once delivery never double-applies.
-- **Idempotent client operations:** checkout, bids, auction checkout and refunds require an `Idempotency-Key`. A repeat with the same body returns the stored response, a different body gets 422, a concurrent repeat gets 409.
+- **Idempotent client operations:** checkout, bids, auction checkout and refunds require an `Idempotency-Key`. The key is inserted in the same transaction as the operation and its response. A repeat with the same body returns the stored response with `Idempotent-Replayed: true`; a different body gets 422. A concurrent repeat blocks on the unique index until the first request commits and then gets the stored response; if the first one rolls back, the repeat runs the operation itself.
 - **Graceful degradation:**
   - Search goes through a circuit breaker with a timeout. When Meilisearch is down, the catalog is served from PostgreSQL with `degraded: true`.
   - Cache errors fall through to the database.
@@ -80,7 +99,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 
 ## Real-time
 
-- **Product and auction channels:** subscribing returns a versioned snapshot in the ack. The client drops pushes older than the version it already has.
+- **Product and auction channels:** the server joins the room first and then reads a versioned snapshot for the ack, so no update can slip in between. The client drops pushes older than the version it already has.
 - **User rooms:** carry order and sub-order status updates.
 - **Reconnect + resync:** after every reconnect the client re-subscribes and receives fresh snapshots, and order data is refetched, so lost pushes don't matter.
 
@@ -91,7 +110,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
   - Google OAuth uses PKCE, state and nonce, and links accounts only by verified email.
 - **IDOR:** every query is scoped to its owner (`seller_id`, `buyer_id`) and returns 404 for other users' resources. E2E tests cover a seller editing another seller's product and a customer accessing someone else's order.
 - **Validation:** DTOs with class-validator (`whitelist`, `forbidNonWhitelisted`), zod on the frontend. Money is stored as integer minor units.
-- **Rate limits:** stored in Redis — login per email and per IP, bids, and a global limit. `TRUST_PROXY` lets them see the real client IP behind nginx.
+- **Rate limits:** stored in Redis — login per email and per IP, bids per IP and per user, and a global limit. The auth guard runs before the rate limiter, so the per-user bid limit sees the signed-in user. `TRUST_PROXY` lets them see the real client IP behind nginx.
 - **Other:** Helmet, CORS, parameterized SQL only.
 
 ## Observability
@@ -104,8 +123,8 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 
 | Suite                                             | Count |
 | ------------------------------------------------- | ----- |
-| Backend unit                                      | 306   |
-| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 150   |
+| Backend unit                                      | 309   |
+| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 154   |
 | Frontend (Vitest + Testing Library)               | 38    |
 | Storybook stories                                 | 33    |
 
@@ -115,7 +134,7 @@ The e2e suite includes:
 - concurrent bids with no lost updates;
 - concurrent checkout on limited stock;
 - redelivery of the same event;
-- the payment saga with compensation;
+- the payment saga with compensation, a payment expiring before the charge arrives and the same `order.placed` settled twice at once;
 - refunds, disputes, payouts, IDOR checks, rate limits, OAuth and WebSocket resync.
 
 Frontend tests cover WebSocket reconnect + resync, idempotent checkout retry and form validation.

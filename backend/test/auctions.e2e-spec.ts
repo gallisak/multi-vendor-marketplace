@@ -169,6 +169,22 @@ describe('Auctions (e2e)', () => {
       await bid(other, productId, START + (limit + 1) * STEP).expect(201);
     });
 
+    it('makes a concurrent retry wait for the first request and replay its response', async () => {
+      const buyer = await createActor(app, prisma, Role.CUSTOMER);
+      const { productId, auctionId } = await createLot();
+      const key = randomUUID();
+
+      const responses = await Promise.all([
+        bid(buyer, productId, START, key),
+        bid(buyer, productId, START, key),
+      ]);
+
+      expect(responses.map((r) => r.status)).toEqual([201, 201]);
+      expect(responses.filter((r) => r.headers['idempotent-replayed'] === 'true')).toHaveLength(1);
+      expect(responses[0].body).toEqual(responses[1].body);
+      expect(await prisma.bid.count({ where: { auctionId } })).toBe(1);
+    });
+
     it('hides lots that are not approved yet', async () => {
       const buyer = await createActor(app, prisma, Role.CUSTOMER);
       const { productId } = await createLot(ProductStatus.PENDING_MODERATION);
