@@ -347,8 +347,10 @@ export interface Payout {
   storeName: string;
   amountMinor: number;
   entriesSettled: number;
-  providerRef: string;
+  status: 'PENDING' | 'PAID';
+  providerRef: string | null;
   createdAt: string;
+  paidAt: string | null;
 }
 
 export interface SellerPayouts extends Page<Payout> {

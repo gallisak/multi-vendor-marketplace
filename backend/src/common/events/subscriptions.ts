@@ -7,6 +7,7 @@ export const CONSUMERS = [
   'realtime',
   'analytics',
   'catalog-cache',
+  'payouts',
 ] as const;
 export type Consumer = (typeof CONSUMERS)[number];
 
@@ -41,6 +42,7 @@ export const SUBSCRIPTIONS: Record<Consumer, readonly DomainEventType[]> = {
   ],
   analytics: ['order.payment_captured', 'payment.refund_requested'],
   'catalog-cache': ['product.changed', 'category.changed'],
+  payouts: ['payout.requested'],
 };
 
 export const queueName = (consumer: Consumer) => `events.${consumer}`;

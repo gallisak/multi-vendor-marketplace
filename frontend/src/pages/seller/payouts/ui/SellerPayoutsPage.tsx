@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSellerPayouts } from '@/entities/seller';
 import { formatDateTime, formatMoney } from '@/shared/lib';
+import { Badge } from '@/shared/ui/badge';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Pager } from '@/shared/ui/pager';
 import { Price } from '@/shared/ui/price';
@@ -45,7 +46,9 @@ export function SellerPayoutsPage() {
                   {payouts.data.items.map((payout) => (
                     <TableRow key={payout.id}>
                       <TableCell>{formatDateTime(payout.createdAt)}</TableCell>
-                      <TableCell className="font-mono text-xs">{payout.providerRef}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {payout.providerRef ?? <Badge variant="secondary">Transfer pending</Badge>}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {payout.entriesSettled}
                       </TableCell>

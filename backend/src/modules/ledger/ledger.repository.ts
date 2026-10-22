@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Paging } from '../../common/pagination.js';
-import { LedgerEntryType } from '../../generated/prisma/enums.js';
+import { LedgerEntryType, PayoutStatus } from '../../generated/prisma/enums.js';
 import { PrismaRepository, type Transaction } from '../../infra/prisma/unit-of-work.js';
 import type { EntryDraft } from './ledger.rules.js';
 
@@ -55,11 +55,20 @@ export class LedgerRepository extends PrismaRepository {
       FOR UPDATE OF l`;
   }
 
-  createPayout(
-    data: { sellerId: string; amountMinor: bigint; providerRef: string },
-    tx: Transaction,
-  ) {
+  createPayout(data: { sellerId: string; amountMinor: bigint }, tx: Transaction) {
     return tx.payout.create({ data });
+  }
+
+  findPayout(payoutId: string) {
+    return this.prisma.payout.findUnique({ where: { id: payoutId } });
+  }
+
+  async markPayoutPaid(payoutId: string, providerRef: string, tx: Transaction) {
+    const { count } = await tx.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.PENDING },
+      data: { status: PayoutStatus.PAID, providerRef, paidAt: new Date() },
+    });
+    return count === 1;
   }
 
   async settle(entryIds: string[], payoutId: string, tx: Transaction) {

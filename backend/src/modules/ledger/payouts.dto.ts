@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PayoutStatus } from '../../generated/prisma/enums.js';
 import { IsOptional, IsUUID } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination.js';
 
@@ -15,8 +16,12 @@ export class PayoutDto {
   @ApiProperty() storeName: string;
   @ApiProperty({ description: 'Transferred to the seller, in minor units' }) amountMinor: number;
   @ApiProperty({ description: 'Ledger lines settled by this payout' }) entriesSettled: number;
-  @ApiProperty({ example: 'mock_transfer_0190' }) providerRef: string;
+  @ApiProperty({ enum: PayoutStatus, description: 'PENDING until the transfer is confirmed' })
+  status: PayoutStatus;
+  @ApiProperty({ type: String, nullable: true, example: 'mock_transfer_0190' })
+  providerRef: string | null;
   @ApiProperty() createdAt: Date;
+  @ApiProperty({ type: Date, nullable: true }) paidAt: Date | null;
 }
 
 export class SellerPayoutsDto {

@@ -69,6 +69,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 | Bids                                                                                      | Strong                        | Optimistic locking on `auctions.version`, up to 5 retries                                                                                                                                                      |
 | SellerOrder status, cancellations, refunds, dispute decisions                             | Strong                        | Parent order locked, explicit state machine, aggregate status recalculated in the same transaction                                                                                                             |
 | Payment                                                                                   | Eventual (choreographed saga) | `order.placed` → capture, or compensation: cancel sub-orders, restock, reverse ledger. Payments not confirmed within `PAYMENT_TIMEOUT` (15 min) are failed the same way; a charge that arrives later is voided |
+| Seller payout                                                                             | Eventual                      | Ledger entries and a `PENDING` payout in one transaction with a `payout.requested` event; the worker calls the provider with `idempotencyKey = payoutId` and marks it `PAID`                                   |
 | Search index, catalog cache, analytics read model, notifications, WebSocket pushes        | Eventual                      | Domain events from the outbox; all of them can be rebuilt from primary data                                                                                                                                    |
 
 ## Business logic
@@ -85,7 +86,7 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
   - Once a lot has bids, the seller can no longer edit its content or archive it.
 - **Reviews:** only buyers whose sub-order is completed can leave one.
 - **Disputes:** resolved by an admin. A buyer win refunds everything not yet refunded.
-- **Payouts:** go out after a hold period, only for completed sub-orders without an open dispute.
+- **Payouts:** go out after a hold period, only for completed sub-orders without an open dispute. The payout is booked in the ledger in one transaction together with a `payout.requested` event; the transfer to the provider happens afterwards in the worker, keyed by the payout id, so a slow or failing provider never holds a database transaction open and a retry never pays twice. The payout stays `PENDING` until the provider confirms it.
 
 ## Reliability
 
@@ -123,8 +124,8 @@ Modules: `auth`, `users`, `sellers`, `categories`, `products`, `search`, `cart`,
 
 | Suite                                             | Count |
 | ------------------------------------------------- | ----- |
-| Backend unit                                      | 309   |
-| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 154   |
+| Backend unit                                      | 313   |
+| Backend e2e (real PostgreSQL, Redis, Meilisearch) | 155   |
 | Frontend (Vitest + Testing Library)               | 38    |
 | Storybook stories                                 | 33    |
 
@@ -164,7 +165,7 @@ cd ../frontend && npm test && npm run storybook
 
 ## Not done / would do differently
 
-- **Payments are mocked.** A real provider would also need webhooks; the payout transfer currently runs inside the database transaction, which a real provider would need moved to an outbox step.
+- **Payments are mocked.** A real provider would also need webhooks. A payout transfer that keeps failing stays `PENDING` after the last retry and needs manual follow-up.
 - **Multiple workers** are safe by design (`SKIP LOCKED`), but were not load-tested at scale. Search sync could apply events out of order across several workers; a full reindex fixes it.
 - **Failed events** stay in the BullMQ failed set after 10 retries; there is no alert or replay tool yet.
 - **Token revocation** checks fail open when Redis is down, trading strictness for availability.

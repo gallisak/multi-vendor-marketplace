@@ -4,6 +4,11 @@ import request from 'supertest';
 import { ProductStatus, Role } from '../src/generated/prisma/enums.js';
 import { PrismaService } from '../src/infra/prisma/prisma.service.js';
 import {
+  MockPayoutGateway,
+  PAYOUT_GATEWAY,
+  type PayoutGateway,
+} from '../src/modules/ledger/payout-gateway.js';
+import {
   bearer,
   cleanupE2eData,
   createActor,
@@ -22,11 +27,15 @@ describe('Seller payouts (e2e)', () => {
   let admin: TestActor;
   let categoryId: string;
   const http = () => request(app.getHttpServer());
+  const provider = new MockPayoutGateway();
+  const gateway = {
+    transfer: vi.fn<PayoutGateway['transfer']>((req) => provider.transfer(req)),
+  } satisfies PayoutGateway;
 
-  const deliveredOrder = async (buyer: TestActor, priceMinor: number) => {
+  const deliveredOrder = async (buyer: TestActor, priceMinor: number, owner = seller) => {
     const product = await prisma.product.create({
       data: {
-        sellerId: seller.sellerId!,
+        sellerId: owner.sellerId!,
         categoryId,
         title: `Payout ${uniqueSlug('p')}`,
         description: 'Payout test product',
@@ -56,7 +65,7 @@ describe('Seller payouts (e2e)', () => {
     for (const action of ['accept', 'ship']) {
       await http()
         .post(`/api/seller/orders/${sellerOrderId}/${action}`)
-        .set(bearer(seller.token))
+        .set(bearer(owner.token))
         .expect(200);
     }
     await http()
@@ -72,7 +81,10 @@ describe('Seller payouts (e2e)', () => {
   const payouts = () => http().get('/api/seller/payouts').set(bearer(seller.token)).expect(200);
 
   beforeAll(async () => {
-    ({ app, prisma } = await createTestApp({ withWorker: true }));
+    ({ app, prisma } = await createTestApp({
+      withWorker: true,
+      overrides: [{ token: PAYOUT_GATEWAY, value: gateway }],
+    }));
     [seller, admin] = await Promise.all([
       createActor(app, prisma, Role.SELLER),
       createActor(app, prisma, Role.ADMIN),
@@ -108,6 +120,7 @@ describe('Seller payouts (e2e)', () => {
         sellerId: seller.sellerId,
         amountMinor: 18_000,
         entriesSettled: 2,
+        status: 'PAID',
       });
       expect(paid.body.items[0].providerRef).toMatch(/^mock_transfer_/);
     }, WAIT);
@@ -208,6 +221,58 @@ describe('Seller payouts (e2e)', () => {
 
     expect(res.body.revenue.allTime).toMatchObject({ payoutMinor: 54_000 });
     expect(res.body.payouts).toEqual({ pendingMinor: 0, paidOutMinor: 54_000 });
+  });
+
+  it('books the payout first and retries the transfer until the provider accepts it', async () => {
+    const owner = await createActor(app, prisma, Role.SELLER);
+    const buyer = await createActor(app, prisma, Role.CUSTOMER);
+    let providerDown!: () => void;
+    const outage = new Promise<void>((resolve) => (providerDown = resolve));
+    let failed = false;
+    gateway.transfer.mockImplementation(async (req) => {
+      if (req.sellerId === owner.sellerId && !failed) {
+        failed = true;
+        await outage;
+        throw new Error('provider down');
+      }
+      return provider.transfer(req);
+    });
+
+    try {
+      const order = await deliveredOrder(buyer, 10_000, owner);
+      await pastHold(order.sellerOrderId);
+
+      const booked = await vi.waitFor(async () => {
+        const payout = await prisma.payout.findFirstOrThrow({
+          where: { sellerId: owner.sellerId! },
+        });
+        expect(payout).toMatchObject({ status: 'PENDING', providerRef: null, paidAt: null });
+        return payout;
+      }, WAIT);
+      const pending = await http().get('/api/seller/payouts').set(bearer(owner.token)).expect(200);
+      expect(pending.body).toMatchObject({ pendingMinor: 0, paidOutMinor: 9_000, total: 1 });
+      expect(pending.body.items[0]).toMatchObject({ status: 'PENDING', providerRef: null });
+
+      providerDown();
+
+      await vi.waitFor(async () => {
+        const payout = await prisma.payout.findUniqueOrThrow({ where: { id: booked.id } });
+        expect(payout).toMatchObject({
+          status: 'PAID',
+          providerRef: `mock_transfer_${booked.id}`,
+        });
+      }, WAIT);
+      const calls = gateway.transfer.mock.calls.filter(([req]) => req.sellerId === owner.sellerId);
+      expect(calls.map(([req]) => req.idempotencyKey)).toEqual([booked.id, booked.id]);
+      expect(await prisma.payout.count({ where: { sellerId: owner.sellerId! } })).toBe(1);
+      await vi.waitFor(async () => {
+        expect(
+          await prisma.notification.count({ where: { userId: owner.userId, type: 'payout.paid' } }),
+        ).toBe(1);
+      }, WAIT);
+    } finally {
+      gateway.transfer.mockImplementation((req) => provider.transfer(req));
+    }
   });
 
   it('leaves sales out of the pending balance until the payment is captured', async () => {
