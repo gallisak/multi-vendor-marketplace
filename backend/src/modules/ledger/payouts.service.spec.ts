@@ -1,10 +1,8 @@
-import type { Counter } from 'prom-client';
 import { LedgerEntryType } from '../../generated/prisma/enums.js';
 import type { OutboxService } from '../../infra/outbox/outbox.service.js';
 import type { Transaction, UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import type { LedgerRepository } from './ledger.repository.js';
 import type { LedgerService } from './ledger.service.js';
-import { MockPayoutGateway } from './payout-gateway.js';
 import { PayoutsService } from './payouts.service.js';
 
 const TX = { tx: true } as unknown as Transaction;
@@ -30,29 +28,23 @@ function setup(due: Record<string, bigint[] | 'locked'>) {
   };
   const outbox = { add: vi.fn(() => Promise.resolve()) };
   const uow = { run: (work: (tx: Transaction) => Promise<unknown>) => work(TX) };
-  const counter = { inc: vi.fn() };
   const service = new PayoutsService(
     ledger as unknown as LedgerRepository,
     {} as LedgerService,
     uow as unknown as UnitOfWork,
     outbox as unknown as OutboxService,
-    new MockPayoutGateway(),
-    counter as unknown as Counter<string>,
   );
-  return { service, ledger, outbox, counter };
+  return { service, ledger, outbox };
 }
 
 describe('PayoutsService', () => {
-  it('pays the net of settled lines and books it as a PAYOUT entry', async () => {
-    const { service, ledger, outbox, counter } = setup({ s1: [9_000n, -2_250n, 450n] });
+  it('books the net of settled lines as a PAYOUT entry and queues the transfer', async () => {
+    const { service, ledger, outbox } = setup({ s1: [9_000n, -2_250n, 450n] });
 
     expect(await service.payDue(CUTOFF)).toBe(1);
 
     expect(ledger.unsettledDue).toHaveBeenCalledWith('s1', CUTOFF, TX);
-    expect(ledger.createPayout).toHaveBeenCalledWith(
-      { sellerId: 's1', amountMinor: 7_200n, providerRef: 'mock_transfer_s1-entry-0' },
-      TX,
-    );
+    expect(ledger.createPayout).toHaveBeenCalledWith({ sellerId: 's1', amountMinor: 7_200n }, TX);
     expect(ledger.settle).toHaveBeenCalledWith(
       ['s1-entry-0', 's1-entry-1', 's1-entry-2'],
       'payout-s1',
@@ -66,7 +58,7 @@ describe('PayoutsService', () => {
     expect(outbox.add).toHaveBeenCalledWith(
       TX,
       expect.objectContaining({
-        type: 'payout.paid',
+        type: 'payout.requested',
         payload: {
           payoutId: 'payout-s1',
           sellerId: 's1',
@@ -75,7 +67,6 @@ describe('PayoutsService', () => {
         },
       }),
     );
-    expect(counter.inc).toHaveBeenCalledTimes(1);
   });
 
   it('carries a negative balance over instead of paying it', async () => {

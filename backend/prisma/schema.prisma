@@ -69,6 +69,11 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum PayoutStatus {
+  PENDING
+  PAID
+}
+
 enum LedgerEntryType {
   SALE
   COMMISSION
@@ -427,11 +432,13 @@ model LedgerEntry {
 }
 
 model Payout {
-  id          String   @id @default(uuid(7)) @db.Uuid
-  sellerId    String   @map("seller_id") @db.Uuid
-  amountMinor BigInt   @map("amount_minor")
-  providerRef String   @map("provider_ref")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id          String       @id @default(uuid(7)) @db.Uuid
+  sellerId    String       @map("seller_id") @db.Uuid
+  amountMinor BigInt       @map("amount_minor")
+  status      PayoutStatus @default(PENDING)
+  providerRef String?      @map("provider_ref")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  paidAt      DateTime?    @map("paid_at") @db.Timestamptz(3)
 
   seller  Seller        @relation(fields: [sellerId], references: [id])
   entries LedgerEntry[]

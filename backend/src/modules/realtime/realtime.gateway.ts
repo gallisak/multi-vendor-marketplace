@@ -121,15 +121,17 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
       return { ok: false, error: parsed };
     }
 
+    const channelRoom = room[parsed.channel](parsed.id);
+    await client.join(channelRoom);
     const snapshot =
       parsed.channel === 'product'
         ? await this.snapshots.product(parsed.id, true)
         : await this.snapshots.auction(parsed.id, true);
     if (!snapshot) {
+      await client.leave(channelRoom);
       return { ok: false, error: `${parsed.channel} not found` };
     }
 
-    await client.join(room[parsed.channel](parsed.id));
     return { ok: true, channel: parsed.channel, snapshot };
   }
 

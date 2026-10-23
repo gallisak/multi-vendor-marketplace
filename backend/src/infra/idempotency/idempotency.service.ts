@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Prisma } from '../../generated/prisma/client.js';
 import type { IdempotencyScope } from '../../generated/prisma/enums.js';
@@ -100,11 +100,8 @@ export class IdempotencyService {
           'Idempotency-Key was already used with a different request',
         );
       }
-      if (existing.responseStatus === null) {
-        throw new ConflictException('A request with this Idempotency-Key is still in progress');
-      }
       return {
-        status: existing.responseStatus,
+        status: existing.responseStatus!,
         body: existing.responseBody as T,
         replayed: true,
       };

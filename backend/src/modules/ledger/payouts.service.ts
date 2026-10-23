@@ -1,17 +1,13 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { InjectMetric } from '@willsoto/nestjs-prometheus';
-import type { Counter } from 'prom-client';
-import { payoutPaid } from '../../common/events/domain-events.js';
+import { Injectable, Logger } from '@nestjs/common';
+import { payoutRequested } from '../../common/events/domain-events.js';
 import { PaginationQueryDto, toPage, toSkipTake } from '../../common/pagination.js';
 import { LedgerEntryType } from '../../generated/prisma/enums.js';
-import { METRIC } from '../../infra/metrics/metric-names.js';
 import { OutboxService } from '../../infra/outbox/outbox.service.js';
 import { type Transaction, UnitOfWork } from '../../infra/prisma/unit-of-work.js';
 import { LedgerRepository } from './ledger.repository.js';
 import { payoutAmount } from './ledger.rules.js';
 import { LedgerService } from './ledger.service.js';
 import type { PayoutDto, PayoutsQueryDto } from './payouts.dto.js';
-import { PAYOUT_GATEWAY, type PayoutGateway } from './payout-gateway.js';
 
 type PayoutRow = Awaited<ReturnType<LedgerRepository['findPayoutPage']>>[0][number];
 
@@ -21,8 +17,10 @@ const toDto = (payout: PayoutRow): PayoutDto => ({
   storeName: payout.seller.storeName,
   amountMinor: Number(payout.amountMinor),
   entriesSettled: payout._count.entries,
+  status: payout.status,
   providerRef: payout.providerRef,
   createdAt: payout.createdAt,
+  paidAt: payout.paidAt,
 });
 
 @Injectable()
@@ -34,8 +32,6 @@ export class PayoutsService {
     private readonly ledgerService: LedgerService,
     private readonly uow: UnitOfWork,
     private readonly outbox: OutboxService,
-    @Inject(PAYOUT_GATEWAY) private readonly gateway: PayoutGateway,
-    @InjectMetric(METRIC.payouts) private readonly payouts: Counter<string>,
   ) {}
 
   async payDue(cutoff: Date) {
@@ -74,12 +70,7 @@ export class PayoutsService {
       return false;
     }
 
-    const { providerRef } = await this.gateway.transfer({
-      idempotencyKey: entries[0].id,
-      sellerId,
-      amountMinor,
-    });
-    const payout = await this.ledger.createPayout({ sellerId, amountMinor, providerRef }, tx);
+    const payout = await this.ledger.createPayout({ sellerId, amountMinor }, tx);
     await this.ledger.settle(
       entries.map((entry) => entry.id),
       payout.id,
@@ -92,14 +83,13 @@ export class PayoutsService {
     );
     await this.outbox.add(
       tx,
-      payoutPaid({
+      payoutRequested({
         payoutId: payout.id,
         sellerId,
         sellerUserId: seller.userId,
         amountMinor: amountMinor.toString(),
       }),
     );
-    this.payouts.inc();
     this.logger.log(
       {
         payoutId: payout.id,
@@ -107,7 +97,7 @@ export class PayoutsService {
         amountMinor: amountMinor.toString(),
         entries: entries.length,
       },
-      'Seller paid out',
+      'Payout booked, transfer queued',
     );
     return true;
   }

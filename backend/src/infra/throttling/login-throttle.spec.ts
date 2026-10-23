@@ -1,6 +1,12 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { Request } from 'express';
-import { clientIp, isBidRequest, isLoginRequest, loginEmailTracker } from './login-throttle.js';
+import {
+  bidUserTracker,
+  clientIp,
+  isBidRequest,
+  isLoginRequest,
+  loginEmailTracker,
+} from './login-throttle.js';
 
 const req = (body?: unknown, ip = '10.0.0.1', ips: string[] = []) =>
   ({ body, ip, ips }) as Pick<Request, 'ip' | 'ips' | 'body'>;
@@ -41,5 +47,12 @@ describe('bid throttling', () => {
     expect(isBidRequest(httpContext('GET', '/api/auctions/abc/bids'))).toBe(false);
     expect(isBidRequest(httpContext('POST', '/api/auctions/abc/checkout'))).toBe(false);
     expect(isBidRequest(httpContext('POST', '/api/auctions/abc/bids/extra'))).toBe(false);
+  });
+});
+
+describe('bid throttling', () => {
+  it('tracks bids per signed-in user and falls back to the ip', () => {
+    expect(bidUserTracker({ ...req(), user: { id: 'u1' } })).toBe('user:u1');
+    expect(bidUserTracker(req())).toBe('ip:10.0.0.1');
   });
 });

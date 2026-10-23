@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAdminPayouts } from '@/entities/seller';
 import { formatDateTime } from '@/shared/lib';
+import { Badge } from '@/shared/ui/badge';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Pager } from '@/shared/ui/pager';
 import { Price } from '@/shared/ui/price';
@@ -40,7 +41,9 @@ export function AdminPayoutsPage() {
                 <TableRow key={payout.id}>
                   <TableCell>{formatDateTime(payout.createdAt)}</TableCell>
                   <TableCell>{payout.storeName}</TableCell>
-                  <TableCell className="font-mono text-xs">{payout.providerRef}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {payout.providerRef ?? <Badge variant="secondary">Transfer pending</Badge>}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{payout.entriesSettled}</TableCell>
                   <TableCell className="text-right">
                     <Price minor={payout.amountMinor} />

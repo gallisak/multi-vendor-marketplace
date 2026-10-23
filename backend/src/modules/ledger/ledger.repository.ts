@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Paging } from '../../common/pagination.js';
-import { LedgerEntryType } from '../../generated/prisma/enums.js';
+import { LedgerEntryType, PayoutStatus } from '../../generated/prisma/enums.js';
 import { PrismaRepository, type Transaction } from '../../infra/prisma/unit-of-work.js';
 import type { EntryDraft } from './ledger.rules.js';
 
@@ -55,11 +55,20 @@ export class LedgerRepository extends PrismaRepository {
       FOR UPDATE OF l`;
   }
 
-  createPayout(
-    data: { sellerId: string; amountMinor: bigint; providerRef: string },
-    tx: Transaction,
-  ) {
+  createPayout(data: { sellerId: string; amountMinor: bigint }, tx: Transaction) {
     return tx.payout.create({ data });
+  }
+
+  findPayout(payoutId: string) {
+    return this.prisma.payout.findUnique({ where: { id: payoutId } });
+  }
+
+  async markPayoutPaid(payoutId: string, providerRef: string, tx: Transaction) {
+    const { count } = await tx.payout.updateMany({
+      where: { id: payoutId, status: PayoutStatus.PENDING },
+      data: { status: PayoutStatus.PAID, providerRef, paidAt: new Date() },
+    });
+    return count === 1;
   }
 
   async settle(entryIds: string[], payoutId: string, tx: Transaction) {
@@ -67,15 +76,21 @@ export class LedgerRepository extends PrismaRepository {
   }
 
   async balances(sellerId: string) {
-    const [row] = await this.prisma.$queryRaw<{ pending: bigint; paidOut: bigint }[]>`
+    const [row] = await this.prisma.$queryRaw<
+      { pending: bigint; inTransit: bigint; paidOut: bigint }[]
+    >`
       SELECT
         COALESCE(SUM(l.amount_minor) FILTER (
           WHERE l.type <> 'PAYOUT' AND l.payout_id IS NULL
             AND (l.seller_order_id IS NULL
               OR o.payment_status IN ('CAPTURED', 'PARTIALLY_REFUNDED', 'REFUNDED'))), 0)::bigint
           AS pending,
-        COALESCE(-SUM(l.amount_minor) FILTER (WHERE l.type = 'PAYOUT'), 0)::bigint AS "paidOut"
+        COALESCE(-SUM(l.amount_minor) FILTER (
+          WHERE l.type = 'PAYOUT' AND p.status = 'PENDING'), 0)::bigint AS "inTransit",
+        COALESCE(-SUM(l.amount_minor) FILTER (
+          WHERE l.type = 'PAYOUT' AND p.status = 'PAID'), 0)::bigint AS "paidOut"
       FROM ledger_entries l
+      LEFT JOIN payouts p ON p.id = l.payout_id
       LEFT JOIN seller_orders so ON so.id = l.seller_order_id
       LEFT JOIN orders o ON o.id = so.order_id
       WHERE l.seller_id = ${sellerId}::uuid`;

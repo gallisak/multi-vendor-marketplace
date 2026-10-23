@@ -23,6 +23,12 @@ export interface DomainEventPayloads {
   };
   'order.payment_captured': { orderId: string; buyerId: string; amountMinor: string };
   'order.payment_failed': { orderId: string; buyerId: string; reason: string };
+  'payout.requested': {
+    payoutId: string;
+    sellerId: string;
+    sellerUserId: string;
+    amountMinor: string;
+  };
   'payout.paid': { payoutId: string; sellerId: string; sellerUserId: string; amountMinor: string };
   'seller-order.paid': {
     sellerOrderId: string;
@@ -244,6 +250,15 @@ export const disputeResolved = (
   type: 'dispute.resolved',
   aggregateType: 'dispute',
   aggregateId: payload.disputeId,
+  payload,
+});
+
+export const payoutRequested = (
+  payload: DomainEventPayloads['payout.requested'],
+): NewDomainEvent<'payout.requested'> => ({
+  type: 'payout.requested',
+  aggregateType: 'payout',
+  aggregateId: payload.payoutId,
   payload,
 });
 

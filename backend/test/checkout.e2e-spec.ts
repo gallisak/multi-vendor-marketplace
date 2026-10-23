@@ -223,6 +223,18 @@ describe('Cart and multi-vendor checkout (e2e)', () => {
       expect(await stockOf(product.id)).toBe(9);
     });
 
+    it('places the cart once when two checkouts with different keys race', async () => {
+      const buyer = await createActor(app, prisma, Role.CUSTOMER);
+      const product = await createProduct(sellerA, 2_500, 10);
+      await addToCart(buyer, product.id, 2).expect(200);
+
+      const results = await Promise.all([checkout(buyer), checkout(buyer)]);
+
+      expect(results.map((r) => r.status).sort()).toEqual([201, 400]);
+      expect(await prisma.order.count({ where: { buyerId: buyer.userId } })).toBe(1);
+      expect(await stockOf(product.id)).toBe(8);
+    });
+
     it('refuses to reuse a key for a different request', async () => {
       const buyer = await createActor(app, prisma, Role.CUSTOMER);
       const product = await createProduct(sellerA, 2_500, 10);

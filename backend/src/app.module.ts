@@ -24,9 +24,9 @@ import { UsersModule } from './modules/users/users.module.js';
   imports: [
     CoreModule,
     HealthModule,
-    ThrottlingModule,
     UsersModule,
     AuthModule,
+    ThrottlingModule,
     SellersModule,
     CategoriesModule,
     ProductsModule,

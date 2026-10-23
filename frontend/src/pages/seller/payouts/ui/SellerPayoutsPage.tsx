@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSellerPayouts } from '@/entities/seller';
 import { formatDateTime, formatMoney } from '@/shared/lib';
+import { Badge } from '@/shared/ui/badge';
 import { PageHeader } from '@/shared/ui/page-header';
 import { Pager } from '@/shared/ui/pager';
 import { Price } from '@/shared/ui/price';
@@ -24,8 +25,9 @@ export function SellerPayoutsPage() {
         <ErrorState error={payouts.error} onRetry={() => void payouts.refetch()} />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <StatTile label="Pending" value={formatMoney(payouts.data.pendingMinor)} />
+            <StatTile label="In transit" value={formatMoney(payouts.data.inTransitMinor)} />
             <StatTile label="Paid out" value={formatMoney(payouts.data.paidOutMinor)} />
           </div>
           {payouts.data.items.length === 0 ? (
@@ -45,7 +47,9 @@ export function SellerPayoutsPage() {
                   {payouts.data.items.map((payout) => (
                     <TableRow key={payout.id}>
                       <TableCell>{formatDateTime(payout.createdAt)}</TableCell>
-                      <TableCell className="font-mono text-xs">{payout.providerRef}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {payout.providerRef ?? <Badge variant="secondary">Transfer pending</Badge>}
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {payout.entriesSettled}
                       </TableCell>

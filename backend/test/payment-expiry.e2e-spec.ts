@@ -130,6 +130,33 @@ describe('Payment expiry (e2e)', () => {
     expect(after.paymentStatus).toBe('FAILED');
   });
 
+  it('keeps the payment captured when the same order.placed is settled twice at once', async () => {
+    const { orderId } = await placeOrder(1);
+    await vi.waitFor(() => expect(held.has(orderId)).toBe(true), WAIT);
+
+    const charges: ((result: ChargeResult) => void)[] = [];
+    const deferred = () =>
+      new Promise<ChargeResult>((resolve) => {
+        charges.push(resolve);
+      });
+    gateway.charge.mockImplementationOnce(deferred).mockImplementationOnce(deferred);
+
+    const eventId = randomUUID();
+    const first = payments.settle(eventId, orderId);
+    const second = payments.settle(eventId, orderId);
+    await vi.waitFor(() => expect(charges).toHaveLength(2), WAIT);
+    for (const resolve of charges) resolve({ ok: true, providerRef: `mock_${orderId}` });
+    await Promise.all([first, second]);
+
+    const order = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      include: { payment: true },
+    });
+    expect(order.paymentStatus).toBe('CAPTURED');
+    expect(order.payment?.status).toBe('CAPTURED');
+    expect(gateway.refund).not.toHaveBeenCalled();
+  });
+
   it('leaves captured payments and fresh pending ones alone', async () => {
     holdCharges = false;
     const captured = await placeOrder(1);

@@ -58,7 +58,11 @@ export class LedgerService {
   }
 
   async balance(sellerId: string) {
-    const { pending, paidOut } = await this.ledger.balances(sellerId);
-    return { pendingMinor: Number(pending), paidOutMinor: Number(paidOut) };
+    const { pending, inTransit, paidOut } = await this.ledger.balances(sellerId);
+    return {
+      pendingMinor: Number(pending),
+      inTransitMinor: Number(inTransit),
+      paidOutMinor: Number(paidOut),
+    };
   }
 }
